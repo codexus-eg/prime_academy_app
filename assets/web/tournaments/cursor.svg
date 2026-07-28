@@ -1,0 +1,16 @@
+<svg width="21" height="30" viewBox="0 0 21 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="customGradient" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate(380)">
+    <stop offset="0%" stop-color="#450486"/>
+    <stop offset="100%" stop-color="#ff9933"/>
+  </linearGradient>
+</defs>
+
+<path fill-rule="evenodd" clip-rule="evenodd" d="M2.09153 24.5746L0.50293 0L20.9998 13.6621L20.8542 17.6846L7.99713 12.9753L5.64903 26.4595L2.09153 24.5746ZM2.77803 24.1309L5.11413 25.3686L7.44243 12.0107L20.1779 16.6757L20.2738 14.0351L1.30863 1.3945L2.77803 24.1309Z" fill="url(#customGradient)"/>
+
+<path fill-rule="evenodd" clip-rule="evenodd" d="M3.52269 23.6347L4.63039 24.2234L6.92159 11.0297L19.4636 15.637L19.5088 14.3807L2.17969 2.79492L3.52269 23.6347Z" fill="url(#customGradient)"/>
+
+<path fill-rule="evenodd" clip-rule="evenodd" d="M11.4564 18.9353L10.5372 24.2189L12.7976 28.1367L7.62489 26.2401L6.83789 24.876L8.70179 14.1616L18.9074 17.9036L19.695 19.2671L18.7496 24.6985L16.4892 20.7807L11.4564 18.9353Z" fill="url(#customGradient)"/>
+
+<path fill-rule="evenodd" clip-rule="evenodd" d="M15.9342 21.4972L12.182 20.1245L11.4971 24.0552L14.1401 28.6275L17.8922 30.0002L18.5778 26.0689L15.9342 21.4972Z" fill="url(#customGradient)"/>
+</svg>
