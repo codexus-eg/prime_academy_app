@@ -20,17 +20,21 @@ workflows:
     scripts:
       - name: Set iOS deployment target
         script: |
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g' ios/Runner.xcodeproj/project.pbxproj
+          # تغيير إصدار iOS إلى 15.0 في إعدادات مشروع Xcode
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g' ios/Runner.xcodeproj/project.pbxproj
+
+          # إجبار ملف Podfile على استخدام إصدار 15.0 سواء كان السطر مفعل أو كتعليق
+          sed -i '' "s/^# platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
+          sed -i '' "s/^platform :ios.*/platform :ios, '15.0'/g" ios/Podfile
 
       - name: Clean and Get Dependencies
         script: |
           flutter clean
-          flutter pub upgrade
+          flutter pub get
           cd ios
           rm -rf Pods
           rm -rf Podfile.lock
-          pod repo update
-          pod install
+          pod install --repo-update
 
       - name: Apply Vault Profiles
         script: |
