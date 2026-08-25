@@ -3,20 +3,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/students/student_incomplete_progress.dart';
 import '../../../data/students/student_profile.dart';
 import '../../../data/students/students_api.dart';
-import '../home_page_scroll.dart';
 import '../models/incomplete_task.dart';
 import '../models/incomplete_task_mapper.dart';
 import '../student_profile_scope.dart';
 import '../widgets/incomplete_task_card.dart';
 import '../widgets/incomplete_tasks_all_complete.dart';
 import '../widgets/incomplete_tasks_category_bar.dart';
+import '../widgets/incomplete_tasks_content_transition.dart';
 import '../widgets/incomplete_tasks_course_header.dart';
+import '../../common/anchored_select_menu.dart';
 
 class HomeIncompleteTasksTab extends StatefulWidget {
   const HomeIncompleteTasksTab({super.key});
@@ -103,12 +103,6 @@ class _HomeIncompleteTasksTabState extends State<HomeIncompleteTasksTab> {
     final scope = StudentProfileScope.maybeOf(context);
     final courses = scope?.profile?.courses ?? const [];
 
-    if (scope == null || scope.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.blue),
-      );
-    }
-
     if (courses.isEmpty) {
       return Padding(
         padding: AppSpacing.profileTabContentPadding,
@@ -130,12 +124,6 @@ class _HomeIncompleteTasksTabState extends State<HomeIncompleteTasksTab> {
       (course) => course.id == _selectedCourseId,
       orElse: () => courses.first,
     );
-
-    if (_loading && _report == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.blue),
-      );
-    }
 
     if (_hasError && _report == null) {
       return Padding(
@@ -165,79 +153,72 @@ class _HomeIncompleteTasksTabState extends State<HomeIncompleteTasksTab> {
         ? const <IncompleteTask>[]
         : incompleteTasksForCategory(report, selectedCategory);
 
-    return ListView(
-      shrinkWrap: true,
-      physics: HomePageScroll.scrollPhysics,
+    return Padding(
       padding: AppSpacing.profileTabContentPadding,
-      children: [
-        IncompleteTasksCourseHeader(
-          courseLabel: selectedCourse.title,
-          taskCount: totalTasks,
-          onCourseTap: () => _pickCourse(courses, selectedCourse.id),
-        ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: AppSpacing.xl),
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.blue),
+      child: Column(
+        children: [
+          IncompleteTasksCourseHeader(
+            courseLabel: selectedCourse.title,
+            taskCount: totalTasks,
+            onCourseTap: (trigger) => _pickCourse(
+              trigger,
+              courses,
+              selectedCourse.id,
             ),
-          )
-        else if (report.isEmpty)
-          const IncompleteTasksAllComplete()
-        else ...[
-          const SizedBox(height: AppSpacing.xl),
-          IncompleteTasksCategoryBar(
-            selected: selectedCategory ?? IncompleteTaskCategory.exams,
-            counts: counts,
-            onSelected: (category) {
-              setState(() => _selectedCategory = category);
-            },
           ),
-          const SizedBox(height: AppSpacing.lg),
-          ...tasks.expand((task) sync* {
-            yield IncompleteTaskCard(
-              key: ValueKey(
-                '${task.category.name}-${task.courseId}-${task.moduleId}-${task.itemId}-${task.quizId ?? task.classificationQuizId ?? task.knowledgeQuizId ?? 0}',
+          if (report.isEmpty && !_loading)
+            const IncompleteTasksAllComplete()
+          else if (report.isEmpty && _loading)
+            const SizedBox(height: AppSpacing.xl)
+          else ...[
+            const SizedBox(height: AppSpacing.xl),
+            IncompleteTasksCategoryBar(
+              selected: selectedCategory ?? IncompleteTaskCategory.exams,
+              counts: counts,
+              onSelected: (category) {
+                setState(() => _selectedCategory = category);
+              },
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            IncompleteTasksContentTransition(
+              category: selectedCategory ?? IncompleteTaskCategory.exams,
+              child: Column(
+                children: [
+                  for (var i = 0; i < tasks.length; i++) ...[
+                    if (i > 0) const SizedBox(height: AppSpacing.base),
+                    IncompleteTaskItemEnter(
+                      child: IncompleteTaskCard(
+                        key: ValueKey(
+                          '${tasks[i].category.name}-${tasks[i].courseId}-${tasks[i].moduleId}-${tasks[i].itemId}-${tasks[i].quizId ?? tasks[i].classificationQuizId ?? tasks[i].knowledgeQuizId ?? 0}',
+                        ),
+                        task: tasks[i],
+                        onTap: () => context.push(
+                          incompleteTaskNavigationPath(tasks[i]),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              task: task,
-              onTap: () => context.push(incompleteTaskNavigationPath(task)),
-            );
-            yield const SizedBox(height: AppSpacing.base);
-          }),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  Future<void> _pickCourse(List<StudentCourse> courses, int currentId) async {
-    final chosen = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: AppColors.mainBg2,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.answerButton),
-        ),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final course in courses)
-                ListTile(
-                  title: Text(
-                    course.title,
-                    style: AppTypography.bodyLg,
-                  ),
-                  trailing: course.id == currentId
-                      ? const Icon(Icons.check, color: AppColors.onDark)
-                      : null,
-                  onTap: () => Navigator.pop(context, course.id),
-                ),
-            ],
-          ),
-        );
-      },
+  Future<void> _pickCourse(
+    BuildContext triggerContext,
+    List<StudentCourse> courses,
+    int currentId,
+  ) async {
+    final chosen = await showAnchoredSelectMenu<int>(
+      triggerContext: triggerContext,
+      selected: currentId,
+      options: [
+        for (final course in courses)
+          AnchoredSelectOption(value: course.id, label: course.title),
+      ],
     );
 
     if (chosen != null && chosen != _selectedCourseId) {

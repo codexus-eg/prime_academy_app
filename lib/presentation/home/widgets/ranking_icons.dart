@@ -9,8 +9,8 @@ abstract final class RankingIcons {
 
   static Color trophyColor(int rank) => switch (rank) {
         1 => AppColors.rankGold,
-        2 => AppColors.rankSilver,
-        3 => AppColors.rankBronze,
+        2 => AppColors.rankSilverLight,
+        3 => AppColors.rankBronzeDark,
         _ => AppColors.transparent,
       };
 

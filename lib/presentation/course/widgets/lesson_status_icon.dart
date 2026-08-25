@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../models/course_lesson.dart';
 import 'lesson_check_mark.dart';
 
 class LessonStatusIcon extends StatelessWidget {
   const LessonStatusIcon({
     super.key,
-    required this.status,
+    this.progressPercent = 0,
+    this.hasTrophy = false,
+    this.showProgressRing = true,
     this.progressColor = AppColors.blue,
   });
 
@@ -23,43 +24,44 @@ class LessonStatusIcon extends StatelessWidget {
   static const centerDotSize = AppSpacing.md;
   static const checkSize = AppSpacing.base;
 
-  final LessonStatus status;
+  final int progressPercent;
+  final bool hasTrophy;
+  final bool showProgressRing;
   final Color progressColor;
 
-  double get _ringProgress => switch (status) {
-        LessonStatus.completed => 1,
-        LessonStatus.inProgress => 0.35,
-        LessonStatus.notStarted => 0,
-      };
+  double get _progress {
+    if (!showProgressRing) return 0;
+    return (progressPercent / 100).clamp(0.0, 1.0);
+  }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: size,
-      height: size,
+      width: LessonStatusIcon.size,
+      height: LessonStatusIcon.size,
       child: Stack(
         alignment: Alignment.center,
         children: [
           CustomPaint(
-            size: const Size(size, size),
+            size: const Size(LessonStatusIcon.size, LessonStatusIcon.size),
             painter: _LessonRingPainter(
-              progress: _ringProgress,
+              progress: _progress,
               outerStrokeColor: AppColors.accent,
               progressColor: progressColor,
             ),
           ),
           Container(
-            width: centerDotSize,
-            height: centerDotSize,
+            width: LessonStatusIcon.centerDotSize,
+            height: LessonStatusIcon.centerDotSize,
             decoration: BoxDecoration(
               color: progressColor,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: status == LessonStatus.completed
+            child: hasTrophy
                 ? const LessonCheckMark(
                     color: AppColors.lessonStatusRing,
-                    size: checkSize,
+                    size: LessonStatusIcon.checkSize,
                   )
                 : null,
           ),
@@ -108,7 +110,7 @@ class _LessonRingPainter extends CustomPainter {
       ..strokeWidth = LessonStatusIcon.innerStroke * scale
       ..strokeCap = StrokeCap.round;
 
-    final sweep = math.pi * 2 * progress.clamp(0, 1);
+    final sweep = math.pi * 2 * progress.clamp(0.0, 1.0);
     canvas.drawArc(
       Rect.fromCircle(
         center: innerCenter,

@@ -88,6 +88,22 @@ abstract final class AppShadows {
     ),
   ];
 
+  /// Web Tailwind `shadow-lg` (black only — no white glow).
+  static const List<BoxShadow> tailwindLg = [
+    BoxShadow(
+      color: Color(0x1A000000),
+      offset: Offset(0, 10),
+      blurRadius: 15,
+      spreadRadius: -3,
+    ),
+    BoxShadow(
+      color: Color(0x1A000000),
+      offset: Offset(0, 4),
+      blurRadius: 6,
+      spreadRadius: -4,
+    ),
+  ];
+
   static const List<BoxShadow> shadow2xl = [
     BoxShadow(
       color: AppColors.overlayBlack10,

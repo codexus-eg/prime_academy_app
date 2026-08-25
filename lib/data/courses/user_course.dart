@@ -1,5 +1,6 @@
 import '../../core/config/api_config.dart';
 import '../../core/config/cdn_config.dart';
+import '../../core/utils/video_source.dart';
 import '../quizzes/quiz_models.dart';
 import 'module_material.dart';
 
@@ -7,6 +8,18 @@ int _asInt(dynamic value, [int fallback = 0]) {
   if (value is int) return value;
   if (value is num) return value.toInt();
   return int.tryParse('$value') ?? fallback;
+}
+
+int? _asIntOrNull(dynamic value) {
+  if (value == null) return null;
+  final parsed = _asInt(value);
+  return parsed == 0 ? null : parsed;
+}
+
+Map<String, dynamic>? _asMap(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return null;
 }
 
 class UserCourse {
@@ -195,12 +208,20 @@ class ModuleTeacher {
   final String? imageUrl;
 
   factory ModuleTeacher.fromJson(Map<String, dynamic> json) {
-    final image = json['image_url'] as String?;
+    final image = json['image_url'];
+    String? rawUrl;
+    if (image is String) {
+      rawUrl = image;
+    } else {
+      final imageMap = _asMap(image);
+      final nested = imageMap?['url'];
+      if (nested is String) rawUrl = nested;
+    }
     return ModuleTeacher(
       id: _asInt(json['id']),
       name: (json['name'] as String? ?? ''),
-      imageUrl: image != null && image.isNotEmpty
-          ? ApiConfig.mediaUrl(image)
+      imageUrl: rawUrl != null && rawUrl.isNotEmpty
+          ? ApiConfig.mediaUrl(rawUrl)
           : null,
     );
   }
@@ -243,7 +264,7 @@ class UserModuleItems {
             .toList()
         : <ModuleMaterial>[];
 
-    final teacherJson = json['teacher'];
+    final teacherJson = _asMap(json['teacher']);
 
     return UserModuleItems(
       id: _asInt(json['id']),
@@ -252,9 +273,7 @@ class UserModuleItems {
       isEnrolled: json['isEnrolled'] == true,
       items: items,
       materials: materials,
-      teacher: teacherJson is Map<String, dynamic>
-          ? ModuleTeacher.fromJson(teacherJson)
-          : null,
+      teacher: teacherJson != null ? ModuleTeacher.fromJson(teacherJson) : null,
     );
   }
 }
@@ -314,27 +333,16 @@ class LessonPlayback {
     final thumbnail = json['thumbnail'];
 
     String? url;
-    LessonVideoKind kind;
+    String? mime;
     if (videoSource is Map<String, dynamic> &&
         (videoSource['url'] as String?)?.isNotEmpty == true) {
       url = CdnConfig.mediaUrl(videoSource['url'] as String);
-      final mime = (videoSource['mime_type'] as String?)?.toLowerCase();
-
-      if (mime == null || mime.isEmpty || mime == 'video/mp4') {
-        kind = LessonVideoKind.mp4;
-      } else if (_isYoutube(url)) {
-        kind = LessonVideoKind.youtube;
-      } else {
-        kind = LessonVideoKind.embed;
-      }
+      mime = videoSource['mime_type'] as String?;
     } else if (external != null && external.isNotEmpty) {
       url = external;
-      kind = _isYoutube(external)
-          ? LessonVideoKind.youtube
-          : LessonVideoKind.embed;
-    } else {
-      kind = LessonVideoKind.none;
     }
+
+    final kind = VideoSource.classify(mimeType: mime, videoUrl: url);
 
     final cardsJson = json['cards'];
     final cards = cardsJson is List
@@ -364,7 +372,7 @@ class LessonPlayback {
       knowledgeQuizId: json['knowledge_quiz_id'] == null
           ? null
           : _asInt(json['knowledge_quiz_id']),
-      chatId: json['chatId'] == null ? null : _asInt(json['chatId']),
+      chatId: _asIntOrNull(json['chatId'] ?? json['chat_id']),
       classificationQuizStatus:
           json['classificationQuizStatus'] is Map<String, dynamic>
               ? LessonQuizStatus.fromJson(
@@ -388,12 +396,6 @@ class LessonPlayback {
     );
   }
 
-  static bool _isYoutube(String url) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return false;
-    final host = uri.host.toLowerCase();
-    return host.contains('youtube.com') || host.contains('youtu.be');
-  }
 }
 
 class LessonCard {

@@ -22,7 +22,7 @@ class ExamAnswerOptionButton extends StatefulWidget {
     required this.shouldShow,
     required this.onTap,
     this.animateEntrance = true,
-    this.cardHeight = 150,
+    this.cardHeight,
   });
 
   final ExamAnswerOption option;
@@ -31,7 +31,9 @@ class ExamAnswerOptionButton extends StatefulWidget {
   final bool shouldShow;
   final VoidCallback? onTap;
   final bool animateEntrance;
-  final double cardHeight;
+
+  /// Optional fixed height. When null, fills the parent (square grid cell).
+  final double? cardHeight;
 
   @override
   State<ExamAnswerOptionButton> createState() => _ExamAnswerOptionButtonState();
@@ -117,21 +119,65 @@ class _ExamAnswerOptionButtonState extends State<ExamAnswerOptionButton>
   }
 
   Widget _buildTitle(String displayTitle) {
-    return QuizHtmlText(
-      html: displayTitle,
-      textAlign: TextAlign.center,
-      baseStyle: AppTypography.bodyLg.copyWith(
-        color: AppColors.onDark,
-        fontWeight: AppFonts.bold,
-        height: 1.35,
-        shadows: const [
-          Shadow(
-            color: Color(0x80000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+    final width = MediaQuery.sizeOf(context).width;
+    // Web: default ~16, sm:text-xl (20), md:text-lg (18)
+    final fontSize = width >= 768
+        ? 18.0
+        : width >= 640
+            ? 20.0
+            : 16.0;
+    final style = AppTypography.bodyLg.copyWith(
+      color: AppColors.onDark,
+      fontWeight: AppFonts.bold,
+      fontSize: fontSize,
+      height: 1.25,
+      shadows: const [
+        Shadow(
+          color: Color(0x80000000),
+          blurRadius: 4,
+          offset: Offset(0, 2),
+        ),
+      ],
+    );
+    final plain = QuizHtmlText.plainText(displayTitle);
+    final words =
+        plain.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) {
+      return QuizHtmlText(
+        html: displayTitle,
+        textAlign: TextAlign.center,
+        baseStyle: style,
+      );
+    }
+
+    // Keep each word on one line (no mid-word wrap). Scale a word down if it
+    // is wider than the square.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Wrap(
+          alignment: WrapAlignment.center,
+          runAlignment: WrapAlignment.center,
+          spacing: 4,
+          runSpacing: 2,
+          children: [
+            for (final word in words)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    word,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
+                    textAlign: TextAlign.center,
+                    style: style,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -191,7 +237,8 @@ class _ExamAnswerOptionButtonState extends State<ExamAnswerOptionButton>
             onTap: widget.onTap,
             borderRadius: radius,
             child: Ink(
-              height: widget.cardHeight,
+              width: double.infinity,
+              height: widget.cardHeight ?? double.infinity,
               decoration: BoxDecoration(
                 color: style.background,
                 borderRadius: radius,

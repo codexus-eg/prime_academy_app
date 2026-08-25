@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
@@ -11,6 +9,9 @@ import '../../core/theme/app_typography.dart';
 import '../../core/utils/phone_formatter.dart';
 import '../../core/widgets/legal_policy_links.dart';
 import '../../data/auth/auth_service.dart';
+import '../../data/students/home_bootstrap.dart';
+import '../home/widgets/app_nav_scaffold.dart';
+import '../home/widgets/notification_navigator.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -41,7 +42,17 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _restoreExistingSession() async {
     final restored = await AuthService.restoreSession();
     if (!mounted || !restored) return;
-    context.go('/home/courses');
+    await _warmHomeAndNavigate();
+  }
+
+  Future<void> _warmHomeAndNavigate() async {
+    try {
+      await HomeBootstrap.warm(context);
+    } catch (_) {
+      // Home will fetch if warmup fails.
+    }
+    if (!mounted) return;
+    await NotificationNavigator.openAfterAuth(context);
   }
 
   @override
@@ -70,7 +81,7 @@ class _LoginPageState extends State<LoginPage> {
     try {
       await AuthService.loginWithPhone(normalized);
       if (!mounted) return;
-      context.go('/home/courses');
+      await _warmHomeAndNavigate();
     } on AuthException catch (error) {
       if (!mounted) return;
       setState(() => _apiError = error.message);
@@ -84,168 +95,77 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppNavScaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.pageContentHorizontal,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _LoginHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.pageContentHorizontal,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: AppSpacing.loginLogoTop),
-                    Center(
-                      child: Image.asset(
-                        'assets/images/logo_prime.webp',
-                        height: AppSpacing.loginLogoHeight,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.loginTitleTop),
-                    Text(
-                      'مرحباً بك مجدداً',
-                      textAlign: TextAlign.center,
-                      textDirection: TextDirection.rtl,
-                      style: AppTypography.loginWelcome.copyWith(
-                        color: AppColors.onDark,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.loginSubtitleTop),
-                    Text(
-                      'أدخل رقم هاتفك للمتابعة',
-                      textAlign: TextAlign.center,
-                      textDirection: TextDirection.rtl,
-                      style: AppTypography.loginSubtitle,
-                    ),
-                    const SizedBox(height: AppSpacing.loginFormTop),
-                    _LoginField(
-                      label: 'رقم الهاتف',
-                      controller: _phoneController,
-                      hint: '201012345678',
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.done,
-                      borderColor: AppTheme.fieldBorderEmail,
-                      errorText: _phoneError,
-                      textDirection: TextDirection.ltr,
-                      onSubmitted: _submit,
-                      onChanged: (_) {
-                        if (_phoneError != null || _apiError != null) {
-                          setState(() {
-                            _phoneError = null;
-                            _apiError = null;
-                          });
-                        }
-                      },
-                    ),
-                    if (_apiError != null) ...[
-                      const SizedBox(height: AppSpacing.base),
-                      Text(
-                        _apiError!,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.bodySm.copyWith(
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.loginButtonTop),
-                    _LoginSubmitButton(
-                      onPressed: _isLoading ? null : _submit,
-                      isLoading: _isLoading,
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const LegalPolicyLinks(),
-                    const SizedBox(height: AppSpacing.pageContentHorizontal),
-                  ],
-                ),
+            const SizedBox(height: AppSpacing.loginLogoTop),
+            Center(
+              child: Image.asset(
+                'assets/images/logo_prime.webp',
+                height: AppSpacing.loginLogoHeight,
+                fit: BoxFit.contain,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginHeader extends StatelessWidget {
-  const _LoginHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: AppSpacing.loginHeaderHeight,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.pageContentHorizontal,
-          vertical: AppSpacing.pageContentHorizontal,
-        ),
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              SizedBox(
-                width: AppSpacing.loginBackButtonSize,
-                height: AppSpacing.loginBackButtonSize,
-                child: Material(
-                  color: AppColors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.smPlus),
-                  child: InkWell(
-                    onTap: () => Navigator.maybePop(context),
-                    borderRadius: BorderRadius.circular(AppRadius.smPlus),
-                    child: const Icon(
-                      Icons.chevron_left,
-                      color: AppColors.onDark,
-                      size: AppSpacing.xxl,
-                    ),
-                  ),
-                ),
+            const SizedBox(height: AppSpacing.loginTitleTop),
+            Text(
+              'مرحباً بك يابطل',
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: AppTypography.loginWelcome.copyWith(
+                color: AppColors.onDark,
               ),
-              DecoratedBox(
-                decoration: ShapeDecoration(
-                  color: AppTheme.fieldFill,
-                  shape: RoundedRectangleBorder(
-                    side: const BorderSide(
-                      width: AppSpacing.loginCountryBorder,
-                      color: AppTheme.countryBorder,
-                    ),
-                    borderRadius: AppRadius.borderAuthForm,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.base,
-                    vertical: AppSpacing.sm,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset(
-                        'assets/images/flag_kuwait.webp',
-                        width: AppSpacing.base,
-                        height: AppSpacing.base,
-                        fit: BoxFit.cover,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        'الكويت',
-                        style: AppTypography.bodyLg.copyWith(
-                          color: AppColors.onDark,
-                          fontWeight: AppFonts.semibold,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
+            ),
+            const SizedBox(height: AppSpacing.loginSubtitleTop),
+            Text(
+              'أدخل رقم هاتفك للمتابعة',
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: AppTypography.loginSubtitle,
+            ),
+            const SizedBox(height: AppSpacing.loginFormTop),
+            _LoginField(
+              label: 'رقم الهاتف',
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              borderColor: AppTheme.fieldBorderEmail,
+              errorText: _phoneError,
+              textDirection: TextDirection.ltr,
+              onSubmitted: _submit,
+              onChanged: (_) {
+                if (_phoneError != null || _apiError != null) {
+                  setState(() {
+                    _phoneError = null;
+                    _apiError = null;
+                  });
+                }
+              },
+            ),
+            if (_apiError != null) ...[
+              const SizedBox(height: AppSpacing.base),
+              Text(
+                _apiError!,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.error,
                 ),
               ),
             ],
-          ),
+            const SizedBox(height: AppSpacing.loginButtonTop),
+            _LoginSubmitButton(
+              onPressed: _isLoading ? null : _submit,
+              isLoading: _isLoading,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            const LegalPolicyLinks(),
+            const SizedBox(height: AppSpacing.pageContentHorizontal),
+          ],
         ),
       ),
     );
@@ -256,8 +176,8 @@ class _LoginField extends StatelessWidget {
   const _LoginField({
     required this.label,
     required this.controller,
-    required this.hint,
     required this.borderColor,
+    this.hint,
     this.keyboardType,
     this.textInputAction,
     this.errorText,
@@ -268,7 +188,7 @@ class _LoginField extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
-  final String hint;
+  final String? hint;
   final Color borderColor;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;

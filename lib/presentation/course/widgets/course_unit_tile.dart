@@ -18,12 +18,16 @@ class CourseUnitTile extends StatelessWidget {
     required this.unit,
     required this.isExpanded,
     required this.onTap,
+    this.showProgressRing = false,
+    this.onLessonClosed,
   });
 
   final String courseId;
   final CourseUnit unit;
   final bool isExpanded;
   final VoidCallback onTap;
+  final bool showProgressRing;
+  final VoidCallback? onLessonClosed;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +75,8 @@ class CourseUnitTile extends StatelessWidget {
                     unitId: unit.id,
                     lessons: unit.lessons,
                     dotColor: AppModuleOverlays.timelineDotFor(overlay),
+                    showProgressRing: showProgressRing,
+                    onLessonClosed: onLessonClosed,
                   )
                 : const SizedBox.shrink(),
           ),

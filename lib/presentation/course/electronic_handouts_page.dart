@@ -75,41 +75,45 @@ class _ElectronicHandoutsPageState extends State<ElectronicHandoutsPage> {
             borderRadius: AppRadius.borderCard,
             child: ColoredBox(
               color: AppTheme.profileInner,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _HandoutsHeader(onClose: () => context.pop()),
-                  Expanded(
-                    child: FutureBuilder<List<ModuleMaterial>>(
-                      future: _future,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        if (snapshot.hasError) {
-                          return _HandoutsMessage(
-                            message: snapshot.error is ApiException
-                                ? (snapshot.error as ApiException).message
-                                : 'تعذّر تحميل الملازم',
-                            onRetry: _retry,
-                          );
-                        }
-                        final files = snapshot.data ?? const [];
-                        if (files.isEmpty) {
-                          return const _HandoutsMessage(
-                            message: 'لا توجد ملازم لهذه الوحدة',
-                          );
-                        }
-                        return _MaterialsList(
-                          files: files,
-                          isEnrolled: widget.isEnrolled,
-                        );
-                      },
+              child: FutureBuilder<List<ModuleMaterial>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  Widget body;
+                  if (snapshot.hasError) {
+                    body = _HandoutsMessage(
+                      message: snapshot.error is ApiException
+                          ? (snapshot.error as ApiException).message
+                          : 'تعذّر تحميل الملازم',
+                      onRetry: _retry,
+                    );
+                  } else {
+                    final files = snapshot.data ?? const [];
+                    if (files.isEmpty) {
+                      body = const _HandoutsMessage(
+                        message: 'لا توجد ملازم لهذه الوحدة',
+                      );
+                    } else {
+                      body = _MaterialsList(
+                        files: files,
+                        isEnrolled: widget.isEnrolled,
+                      );
+                    }
+                  }
+
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _HandoutsHeader(onClose: () => context.pop()),
+                        body,
+                      ],
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ),
@@ -176,15 +180,22 @@ class _MaterialsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return Padding(
       padding: const EdgeInsets.all(AppSpacing.base),
-      itemCount: files.length,
-      separatorBuilder: (_, index) => const SizedBox(height: AppSpacing.base),
-      itemBuilder: (context, index) {
-        final file = files[index];
-        final hasAccess = isEnrolled || file.accessWithoutEnrollment;
-        return _MaterialTile(file: file, hasAccess: hasAccess);
-      },
+      child: Column(
+        children: [
+          for (var index = 0; index < files.length; index++) ...[
+            if (index > 0) const SizedBox(height: AppSpacing.base),
+            Builder(
+              builder: (context) {
+                final file = files[index];
+                final hasAccess = isEnrolled || file.accessWithoutEnrollment;
+                return _MaterialTile(file: file, hasAccess: hasAccess);
+              },
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

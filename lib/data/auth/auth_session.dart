@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'auth_token_storage.dart';
 import 'jwt_utils.dart';
+import '../../core/images/persistent_network_image.dart';
+import '../students/student_awards_cache.dart';
+import '../students/student_profile_cache.dart';
 
 class AuthUser {
   const AuthUser({
@@ -76,6 +79,9 @@ abstract final class AuthSession {
   }
 
   static Future<void> clear() {
+    StudentProfileCache.clear();
+    StudentAwardsCache.clear();
+    PersistentNetworkImageCache.clear();
     return AuthTokenStorage.clear();
   }
 

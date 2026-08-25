@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/buttons/custom_button.dart';
+import '../../../core/widgets/gradient_border.dart';
 import 'notification_dropdown.dart';
 
 class HomeTopBar extends StatelessWidget {
@@ -20,36 +20,70 @@ class HomeTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < AppSpacing.breakpointSm;
+
+    // Web MobileNav sits outside <main dir="rtl">, so it lays out LTR:
+    // [menu | bell | الكويت] ........ [logo]
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
+      padding: EdgeInsetsDirectional.fromSTEB(
         AppSpacing.pageContentHorizontal,
-        AppSpacing.smPlus,
+        AppSpacing.mobileNavTopPadding,
         AppSpacing.pageContentHorizontal,
-        AppSpacing.lg,
+        AppSpacing.mobileNavBottomPadding,
       ),
-      child: Row(
-        children: [
-          Image.asset(
-            'assets/images/logo_prime.webp',
-            width: 120,
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MenuButton(onTap: onMenuTap),
+                SizedBox(width: AppSpacing.mobileNavItemGap),
+                const NotificationDropdown(),
+                SizedBox(width: AppSpacing.mobileNavItemGap),
+                _CountryChip(onTap: onCountryTap),
+              ],
+            ),
+            Image.asset(
+              'assets/images/logo_prime.webp',
+              width: isMobile
+                  ? AppSpacing.mobileNavLogoWidth
+                  : AppSpacing.mobileNavLogoWidth * 1.25,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderSm,
+        child: SizedBox(
+          width: AppSpacing.xxxl,
+          height: AppSpacing.xxxl,
+          child: Center(
+            child: Icon(
+              Icons.menu_rounded,
+              size: AppSpacing.mobileNavMenuIconSize,
+              color: AppColors.onDark,
+            ),
           ),
-          const Spacer(),
-          _CountryChip(onTap: onCountryTap),
-          const Spacer(),
-          const NotificationDropdown(),
-          const SizedBox(width: AppSpacing.sm),
-          CustomButton.icon(
-            onPressed: onMenuTap,
-            icon: Icons.menu_rounded,
-            height: AppSpacing.iconButtonSize,
-            width: AppSpacing.iconButtonSize,
-            borderRadius: AppRadius.borderTabBar,
-            foregroundColor: AppColors.primary.withValues(alpha: 0.92),
-            variant: CustomButtonVariant.text,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -66,42 +100,33 @@ class _CountryChip extends StatelessWidget {
       color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.borderSm,
-        child: Ink(
-          decoration: ShapeDecoration(
-            color: AppColors.fieldFill,
-            shape: RoundedRectangleBorder(
-              side: const BorderSide(
-                width: AppSpacing.loginCountryBorder,
-                color: AppColors.countryBorder,
-              ),
-              borderRadius: AppRadius.borderSm,
-            ),
+        borderRadius: AppRadius.borderTailwindXl,
+        child: GradientBorder(
+          borderRadius: AppRadius.borderTailwindXl,
+          backgroundColor: AppColors.surfaceElevated,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.sm,
           ),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/flag_kuwait.webp',
-                  width: AppSpacing.base,
-                  height: AppSpacing.base,
-                  fit: BoxFit.contain,
-                  gaplessPlayback: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                'assets/images/Flag_of_Kuwait.svg',
+                width: AppSpacing.mobileNavFlagSize,
+                height: AppSpacing.mobileNavFlagSize,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'الكويت',
+                style: AppTypography.bodyMd.copyWith(
+                  color: AppColors.onDark,
+                  fontSize: 14,
+                  height: 1.2,
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'الكويت',
-                  style: AppTypography.bodyMd.copyWith(
-                    fontWeight: AppFonts.semibold,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

@@ -7,7 +7,6 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../data/classification_assets.dart';
 import '../models/classification_level.dart';
-import 'classification_char_glow.dart';
 
 class ClassificationReadyState extends StatefulWidget {
   const ClassificationReadyState({
@@ -31,26 +30,36 @@ class ClassificationReadyState extends StatefulWidget {
 }
 
 class _ClassificationReadyStateState extends State<ClassificationReadyState>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _entranceController;
+    with TickerProviderStateMixin {
+  static const _accent = Color(0xFF2072E0);
+
+  late final AnimationController _fadeController;
+  late final AnimationController _floatController;
   late final Animation<double> _fade;
-  late final Animation<double> _scale;
+  late final Animation<double> _floatY;
 
   @override
   void initState() {
     super.initState();
-    _entranceController = AnimationController(
+    _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: const Duration(milliseconds: 300),
     );
-    _fade = CurvedAnimation(parent: _entranceController, curve: Curves.easeOut);
-    _scale = Tween<double>(begin: 0.9, end: 1).animate(_fade);
-    _entranceController.forward();
+    _fade = CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+    _floatY = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+    _fadeController.forward();
   }
 
   @override
   void dispose() {
-    _entranceController.dispose();
+    _fadeController.dispose();
+    _floatController.dispose();
     super.dispose();
   }
 
@@ -71,10 +80,10 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-        child: FadeTransition(
-          opacity: _fade,
+      child: FadeTransition(
+        opacity: _fade,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Align(
             alignment: Alignment.center,
             child: ConstrainedBox(
@@ -82,41 +91,41 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.base,
-                      vertical: AppSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentBg10,
-                      borderRadius: BorderRadius.circular(AppRadius.shadcnMd),
-                      border: Border.all(
-                        color: AppColors.accentBg.withValues(alpha: 0.8),
+                  _LevelBadge(title: widget.currentLevel.title),
+                  const SizedBox(height: 24),
+                  AnimatedBuilder(
+                    animation: _floatY,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, _floatY.value),
+                        child: child,
+                      );
+                    },
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x40000000),
+                            blurRadius: 25,
+                            offset: Offset(0, 12),
+                            spreadRadius: -8,
+                          ),
+                        ],
                       ),
-                    ),
-                    child: Text(
-                      'تصنيفك : ${widget.currentLevel.title}',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodySm.copyWith(
-                        color: AppColors.accentIconMuted400,
-                        fontWeight: AppFonts.bold,
+                      child: Image.asset(
+                        characterAsset,
+                        width: 224,
+                        height: 224,
+                        fit: BoxFit.contain,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.high,
                       ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.xl),
-                  ScaleTransition(
-                    scale: _scale,
-                    child: ClassificationCharGlow(
-                      imageAsset: characterAsset,
-                      maxSize: 224,
-                      imageOffsetX: 10,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
+                  const SizedBox(height: 24),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: AppColors.mainBg3,
                       borderRadius: BorderRadius.circular(AppRadius.tailwind2xl),
@@ -133,7 +142,6 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
                     ),
                     child: Column(
                       children: [
-
                         ClipRRect(
                           borderRadius: BorderRadius.circular(AppRadius.full),
                           child: SizedBox(
@@ -151,16 +159,14 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
                                     widthFactor: progress.clamp(0.0, 1.0),
                                     heightFactor: 1,
                                     alignment: Alignment.centerRight,
-                                    child: const ColoredBox(
-                                      color: AppColors.accentBg,
-                                    ),
+                                    child: const ColoredBox(color: _accent),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.base),
+                        const SizedBox(height: 16),
                         Text(
                           'جاوب الأسئلة واثبت نفسك',
                           textAlign: TextAlign.center,
@@ -169,7 +175,7 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
                             fontWeight: AppFonts.bold,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: 12),
                         Material(
                           color: AppColors.transparent,
                           child: InkWell(
@@ -182,7 +188,7 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.accentBg,
+                                color: _accent,
                                 borderRadius: BorderRadius.circular(
                                   AppRadius.shadcnMd,
                                 ),
@@ -217,6 +223,46 @@ class _ClassificationReadyStateState extends State<ClassificationReadyState>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Web ready-state pill: `rounded-full px-5 py-2.5` with accent glow + inset.
+class _LevelBadge extends StatelessWidget {
+  const _LevelBadge({required this.title});
+
+  final String title;
+
+  static const _accent = Color(0xFF2072E0);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: _accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _accent.withValues(alpha: 0.5)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2E2072E0),
+            blurRadius: 24,
+          ),
+          BoxShadow(
+            color: Color(0x142072E0),
+            blurRadius: 12,
+            blurStyle: BlurStyle.inner,
+          ),
+        ],
+      ),
+      child: Text(
+        'تصنيفك : $title',
+        textAlign: TextAlign.center,
+        style: AppTypography.bodySm.copyWith(
+          color: Colors.white,
+          fontWeight: AppFonts.semibold,
         ),
       ),
     );

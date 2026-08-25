@@ -36,6 +36,36 @@ class CourseLesson {
   final String? externalUrl;
 
   final bool locked;
+
+  bool get isLessonItem => !isChallenge && !isExternal;
+
+  CourseLesson copyWith({
+    String? id,
+    String? title,
+    LessonStatus? status,
+    String? videoUrl,
+    int? progressPercent,
+    String? duration,
+    bool? isChallenge,
+    bool? hasTrophy,
+    bool? isExternal,
+    String? externalUrl,
+    bool? locked,
+  }) {
+    return CourseLesson(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      status: status ?? this.status,
+      videoUrl: videoUrl ?? this.videoUrl,
+      progressPercent: progressPercent ?? this.progressPercent,
+      duration: duration ?? this.duration,
+      isChallenge: isChallenge ?? this.isChallenge,
+      hasTrophy: hasTrophy ?? this.hasTrophy,
+      isExternal: isExternal ?? this.isExternal,
+      externalUrl: externalUrl ?? this.externalUrl,
+      locked: locked ?? this.locked,
+    );
+  }
 }
 
 class LessonContext {

@@ -16,7 +16,7 @@ class ReportFilterDropdown extends StatelessWidget {
   });
 
   final String label;
-  final VoidCallback? onTap;
+  final void Function(BuildContext triggerContext)? onTap;
   final double? width;
   final bool showFilterIcon;
 
@@ -35,7 +35,7 @@ class ReportFilterDropdown extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: onTap == null ? null : () => onTap!(context),
             borderRadius: AppRadius.borderTailwindXl,
             child: Padding(
               padding: const EdgeInsetsDirectional.symmetric(

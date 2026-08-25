@@ -40,10 +40,12 @@ class _RankingStudentRowState extends State<RankingStudentRow> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: student.isCurrentStudent
-              ? AppGradients.rankingCurrentRowRtl
+              ? AppGradients.rankingCurrentRow
               : null,
           color: _hovered && !student.isCurrentStudent
-              ? AppColors.overlayWhite3
+              ? (student.rank <= 3
+                  ? AppColors.overlayWhite3
+                  : AppColors.overlayWhite2)
               : null,
           border: const Border(
             bottom: BorderSide(color: AppColors.overlayWhite3),
@@ -226,8 +228,11 @@ class _StudentName extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.start,
             style: AppTypography.bodyMd.copyWith(
-              color: AppColors.onDark,
-              fontWeight: AppFonts.regular,
+              color: isCurrentStudent
+                  ? AppColors.accentSoft
+                  : AppColors.onDark,
+              fontWeight:
+                  isCurrentStudent ? AppFonts.semibold : AppFonts.regular,
               fontSize: fontSize,
             ),
           ),

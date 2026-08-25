@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/config/cdn_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/courses/course_rank.dart';
 import '../../../data/courses/courses_api.dart';
-import '../../../data/students/student_profile.dart';
 import '../models/ranking_student.dart';
 import '../student_profile_scope.dart';
 import '../widgets/ranking_empty_state.dart';
@@ -16,6 +14,7 @@ import '../widgets/ranking_leaderboard_card.dart';
 import '../widgets/ranking_search_field.dart';
 import '../widgets/ranking_student_count_header.dart';
 import '../widgets/report_filter_dropdown.dart';
+import '../../common/anchored_select_menu.dart';
 
 class HomeRankingTab extends StatefulWidget {
   const HomeRankingTab({super.key});
@@ -28,6 +27,7 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
   static const _studentsPerPage = 25;
 
   final _searchController = TextEditingController();
+  final _currentStudentKey = GlobalKey();
 
   int? _selectedCourseId;
   var _currentPage = 1;
@@ -130,20 +130,13 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
       final rankings = await CoursesApi.fetchRanksByCourse(courseId);
       if (!mounted) return;
 
-      var page = 1;
-      final studentId = _currentStudentId;
-      if (studentId != null && _searchQuery.isEmpty) {
-        final index = rankings.indexWhere((r) => r.id == studentId);
-        if (index != -1) {
-          page = (index / _studentsPerPage).floor() + 1;
-        }
-      }
-
       setState(() {
         _rankings = rankings;
         _loading = false;
-        _currentPage = page;
       });
+      // Match web: jump to the page that contains the current student, then
+      // scroll that row into the center of the viewport.
+      _goToCurrentStudent(scrollIntoView: true);
     } on ApiException catch (_) {
       if (!mounted) return;
       setState(() {
@@ -159,6 +152,36 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
         _rankings = const [];
       });
     }
+  }
+
+  /// Web RankTable: set page from student index, then scrollIntoView(center).
+  void _goToCurrentStudent({required bool scrollIntoView}) {
+    if (_searchQuery.isNotEmpty) return;
+
+    final index = _filteredStudents.indexWhere((s) => s.isCurrentStudent);
+    final page = index == -1
+        ? 1
+        : (index / _studentsPerPage).floor() + 1;
+
+    if (_currentPage != page) {
+      setState(() => _currentPage = page);
+    }
+
+    if (!scrollIntoView || index == -1) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 150), () {
+        if (!mounted) return;
+        final target = _currentStudentKey.currentContext;
+        if (target == null) return;
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          alignment: 0.5,
+        );
+      });
+    });
   }
 
   void _onCourseChanged(int courseId) {
@@ -181,10 +204,6 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
   Widget build(BuildContext context) {
     final scope = StudentProfileScope.maybeOf(context);
     final courses = scope?.profile?.courses ?? const [];
-
-    if (scope == null || scope.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.blue));
-    }
 
     if (courses.isEmpty) {
       return Padding(
@@ -217,7 +236,22 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
               const SizedBox(height: AppSpacing.profileSectionGap),
               ReportFilterDropdown(
                 label: selectedCourse.title,
-                onTap: () => _pickCourse(courses, selectedCourse),
+                onTap: (trigger) async {
+                  final chosen = await showAnchoredSelectMenu<int>(
+                    triggerContext: trigger,
+                    selected: selectedCourse.id,
+                    options: [
+                      for (final course in courses)
+                        AnchoredSelectOption(
+                          value: course.id,
+                          label: course.title,
+                        ),
+                    ],
+                  );
+                  if (chosen != null && chosen != _selectedCourseId) {
+                    _onCourseChanged(chosen);
+                  }
+                },
               ),
               const SizedBox(height: AppSpacing.profileSectionGap),
               RankingSearchField(controller: _searchController),
@@ -238,33 +272,33 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
             ],
           ),
         ),
-        Expanded(child: _buildBody(context)),
+        _buildBody(context),
       ],
     );
   }
 
   Widget _buildBody(BuildContext context) {
-    if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.blue),
-      );
+    if (_loading && _rankings.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     if (_hasError) {
-      return ListView(
+      return Padding(
         padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
-        children: [
-          Text(
-            'حدث خطأ أثناء تحميل البيانات',
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyLg.copyWith(color: AppColors.error),
-          ),
-          const SizedBox(height: AppSpacing.base),
-          TextButton(
-            onPressed: _loadRankings,
-            child: const Text('إعادة المحاولة'),
-          ),
-        ],
+        child: Column(
+          children: [
+            Text(
+              'حدث خطأ أثناء تحميل البيانات',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyLg.copyWith(color: AppColors.error),
+            ),
+            const SizedBox(height: AppSpacing.base),
+            TextButton(
+              onPressed: _loadRankings,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
       );
     }
 
@@ -272,103 +306,41 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
         ? 'لا يوجد طلاب'
         : 'لم يتم العثور على طلاب بهذا الاسم';
 
-    return ListView(
+    return Padding(
       padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
-      children: [
-        RankingLeaderboardCard(
-          students: _pageStudents,
-          currentPage: _currentPage.clamp(1, _effectiveTotalPages),
-          totalPages: _effectiveTotalPages,
-          sortField: _sortField,
-          sortAscending: _sortAscending,
-          onSort: (field) {
-            setState(() {
-              if (_sortField == field) {
-                _sortAscending = !_sortAscending;
-              } else {
-                _sortField = field;
-                _sortAscending = true;
-              }
-            });
-          },
-          onPrevious: _currentPage > 1
-              ? () => setState(() => _currentPage--)
-              : null,
-          onNext: _currentPage < _effectiveTotalPages
-              ? () => setState(() => _currentPage++)
-              : null,
-          emptyState: _filteredStudents.isEmpty
-              ? RankingEmptyState(
-                  message: emptyMessage,
-                  onClearSearch: _searchQuery.isEmpty
-                      ? null
-                      : () => _searchController.clear(),
-                )
-              : null,
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickCourse(
-    List<StudentCourse> courses,
-    StudentCourse current,
-  ) async {
-    final options = courses.map((c) => c.title).toList();
-    final chosen = await showModalBottomSheet<String>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: AppColors.mainBg2,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.answerButton),
-        ),
+      child: RankingLeaderboardCard(
+        students: _pageStudents,
+        currentPage: _currentPage.clamp(1, _effectiveTotalPages),
+        totalPages: _effectiveTotalPages,
+        sortField: _sortField,
+        sortAscending: _sortAscending,
+        currentStudentKey: _currentStudentKey,
+        onSort: (field) {
+          setState(() {
+            if (_sortField == field) {
+              _sortAscending = !_sortAscending;
+            } else {
+              _sortField = field;
+              _sortAscending = true;
+            }
+          });
+          _goToCurrentStudent(scrollIntoView: true);
+        },
+        onPrevious: _currentPage > 1
+            ? () => setState(() => _currentPage--)
+            : null,
+        onNext: _currentPage < _effectiveTotalPages
+            ? () => setState(() => _currentPage++)
+            : null,
+        emptyState: _filteredStudents.isEmpty
+            ? RankingEmptyState(
+                message: emptyMessage,
+                onClearSearch: _searchQuery.isEmpty
+                    ? null
+                    : () => _searchController.clear(),
+              )
+            : null,
       ),
-      builder: (sheetContext) {
-        final viewPadding = MediaQuery.viewPaddingOf(sheetContext);
-        final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.55;
-        const rowHeight = 56.0;
-        final contentHeight = options.length * rowHeight + viewPadding.bottom;
-        final sheetHeight = contentHeight.clamp(0.0, maxHeight);
-
-        return SafeArea(
-          top: false,
-          child: SizedBox(
-            height: sheetHeight,
-            child: ListView.separated(
-              padding: EdgeInsets.only(bottom: viewPadding.bottom),
-              itemCount: options.length,
-              separatorBuilder: (context, index) => Divider(
-                height: 1,
-                color: AppColors.overlayWhite6,
-              ),
-              itemBuilder: (context, index) {
-                final title = options[index];
-                final isSelected = title == current.title;
-                return ListTile(
-                  title: Text(
-                    title,
-                    style: AppTypography.filterLabel.copyWith(
-                      color: AppColors.onDark,
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? const Icon(Icons.check, color: AppColors.onDark)
-                      : null,
-                  onTap: () => Navigator.pop(sheetContext, title),
-                );
-              },
-            ),
-          ),
-        );
-      },
     );
-
-    if (chosen == null) return;
-    final course = courses.firstWhere((c) => c.title == chosen);
-    if (course.id != _selectedCourseId) {
-      _onCourseChanged(course.id);
-    }
   }
 }

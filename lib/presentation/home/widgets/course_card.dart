@@ -1,9 +1,8 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_avif/flutter_avif.dart';
 
-import '../../../core/theme/app_colors.dart';
+import '../../../core/images/persistent_network_image.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -369,52 +368,14 @@ class _CourseNetworkImage extends StatelessWidget {
   final BoxFit fit;
   final Alignment alignment;
 
-  int? _cacheDimension(double? logical, BuildContext context) {
-    if (logical == null) return null;
-    return (logical * MediaQuery.devicePixelRatioOf(context)).round();
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (url == null || url!.isEmpty) {
-      return const ColoredBox(color: AppColors.courseCardImageFallback);
-    }
-
-    final cacheW = _cacheDimension(width, context);
-    final cacheH = _cacheDimension(height, context);
-
-    if (url!.toLowerCase().endsWith('.avif')) {
-      return AvifImage.network(
-        url!,
-        width: width,
-        height: height,
-        fit: fit,
-        alignment: alignment,
-        gaplessPlayback: true,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (context, error, stackTrace) {
-          return const ColoredBox(color: AppColors.courseCardImageFallback);
-        },
-      );
-    }
-
-    return Image.network(
-      url!,
+    return PersistentNetworkImage(
+      url: url,
       width: width,
       height: height,
       fit: fit,
       alignment: alignment,
-      cacheWidth: cacheW,
-      cacheHeight: cacheH,
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.high,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return const ColoredBox(color: AppColors.courseCardImageFallback);
-      },
-      errorBuilder: (context, error, stackTrace) {
-        return const ColoredBox(color: AppColors.courseCardImageFallback);
-      },
     );
   }
 }

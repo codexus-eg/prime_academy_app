@@ -7,8 +7,9 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
+import '../../data/auth/auth_session.dart';
 import '../../data/courses/courses_api.dart';
-import '../home/widgets/home_top_bar.dart';
+import '../home/widgets/app_nav_scaffold.dart';
 import 'models/course_detail_mapper.dart';
 import 'models/course_unit.dart';
 import 'widgets/course_unit_tile.dart';
@@ -29,13 +30,20 @@ class CourseDetailPage extends StatefulWidget {
 
 class _CourseDetailPageState extends State<CourseDetailPage> {
   int? _expandedUnitIndex;
+  var _showStudentProgress = false;
 
   late Future<CourseDetail> _courseFuture;
 
   @override
   void initState() {
     super.initState();
-    _courseFuture = _loadCourse();
+    _courseFuture = _bootstrap();
+  }
+
+  Future<CourseDetail> _bootstrap() async {
+    final user = await AuthSession.load();
+    _showStudentProgress = user?.role == 1;
+    return _loadCourse();
   }
 
   Future<CourseDetail> _loadCourse() async {
@@ -47,6 +55,18 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     return CourseDetailMapper.fromUserCourse(course);
   }
 
+  Future<void> _refreshProgress() async {
+    final expanded = _expandedUnitIndex;
+    try {
+      final course = await _loadCourse();
+      if (!mounted) return;
+      setState(() {
+        _courseFuture = Future<CourseDetail>.value(course);
+        _expandedUnitIndex = expanded;
+      });
+    } catch (_) {}
+  }
+
   void _retry() {
     setState(() {
       _expandedUnitIndex = null;
@@ -56,46 +76,26 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppNavScaffold(
       backgroundColor: AppColors.mainBg,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                color: AppColors.mainBg,
-                border: Border(
-                  bottom: BorderSide(
-                    width: AppSpacing.hairline,
-                    color: AppColors.headerBorder,
-                  ),
-                ),
-              ),
-              child: const HomeTopBar(),
-            ),
-            Expanded(
-              child: FutureBuilder<CourseDetail>(
-                future: _courseFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return _CourseError(
-                      message: snapshot.error is ApiException
-                          ? (snapshot.error as ApiException).message
-                          : 'تعذّر تحميل تفاصيل الدورة',
-                      onRetry: _retry,
-                    );
-                  }
-                  final course = snapshot.data!;
-                  return _buildContent(course);
-                },
-              ),
-            ),
-          ],
-        ),
+      topBarBackground: AppColors.mainBg,
+      body: FutureBuilder<CourseDetail>(
+        future: _courseFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _CourseError(
+              message: snapshot.error is ApiException
+                  ? (snapshot.error as ApiException).message
+                  : 'تعذّر تحميل تفاصيل الدورة',
+              onRetry: _retry,
+            );
+          }
+          final course = snapshot.data!;
+          return _buildContent(course);
+        },
       ),
     );
   }
@@ -165,6 +165,8 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
             courseId: widget.courseId,
             unit: course.units[i],
             isExpanded: _expandedUnitIndex == i,
+            showProgressRing: course.isEnrolled && _showStudentProgress,
+            onLessonClosed: _refreshProgress,
             onTap: () {
               setState(() {
                 _expandedUnitIndex = _expandedUnitIndex == i ? null : i;

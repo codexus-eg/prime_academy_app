@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../data/students/student_awards.dart';
+import '../../../data/students/student_awards_cache.dart';
 import '../../../data/students/students_api.dart';
 import '../models/award_carousel_item.dart';
 import '../student_profile_scope.dart';
@@ -18,7 +18,6 @@ class HomeAwardsTab extends StatefulWidget {
 }
 
 class _HomeAwardsTabState extends State<HomeAwardsTab> {
-  var _loading = false;
   var _hasError = false;
   StudentAwards? _awards;
   var _showCelebration = false;
@@ -35,75 +34,72 @@ class _HomeAwardsTabState extends State<HomeAwardsTab> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAwards());
+    final cached = StudentAwardsCache.awards;
+    if (cached != null) {
+      _awards = cached;
+      _applyCelebration(cached);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshAwardsIfNeeded());
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final id = _studentId;
-    if (id != null && _awards == null && !_loading && !_hasError) {
-      _loadAwards();
+    if (id != null && _awards == null && !_hasError) {
+      _refreshAwardsIfNeeded();
     }
+  }
+
+  void _applyCelebration(StudentAwards awards) {
+    final shouldCelebrate = !_celebrationPlayed &&
+        awards.studentClassificationLevels.isNotEmpty &&
+        awards.hasAwards;
+
+    if (!shouldCelebrate) return;
+
+    setState(() {
+      _showCelebration = true;
+      _celebrationPlayed = true;
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _showCelebration = false);
+    });
+  }
+
+  Future<void> _refreshAwardsIfNeeded() async {
+    if (_awards != null || _hasError) return;
+    await _loadAwards();
   }
 
   Future<void> _loadAwards() async {
     final studentId = _studentId;
     if (studentId == null) return;
 
-    setState(() {
-      _loading = true;
-      _hasError = false;
-    });
+    setState(() => _hasError = false);
 
     try {
       final awards = await StudentsApi.fetchStudentAwards(studentId);
       if (!mounted) return;
 
-      final shouldCelebrate = !_celebrationPlayed &&
-          awards.studentClassificationLevels.isNotEmpty &&
-          awards.hasAwards;
-
+      StudentAwardsCache.store(awards);
       setState(() {
         _awards = awards;
-        _loading = false;
-        if (shouldCelebrate) {
-          _showCelebration = true;
-          _celebrationPlayed = true;
-        }
       });
-
-      if (shouldCelebrate) {
-        Future.delayed(const Duration(seconds: 3), () {
-          if (!mounted) return;
-          setState(() => _showCelebration = false);
-        });
-      }
+      _applyCelebration(awards);
     } on ApiException {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _hasError = true;
-      });
+      setState(() => _hasError = true);
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _hasError = true;
-      });
+      setState(() => _hasError = true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final scope = StudentProfileScope.maybeOf(context);
-
-    if (scope?.profile == null && !_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.blue),
-      );
-    }
-
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -119,10 +115,7 @@ class _HomeAwardsTabState extends State<HomeAwardsTab> {
                     child: const Text('تعذّر تحميل الجوائز — إعادة المحاولة'),
                   ),
                 ),
-              AwardsPanel(
-                items: _carouselItems,
-                loading: _loading,
-              ),
+              AwardsPanel(items: _carouselItems),
             ],
           ),
         ),

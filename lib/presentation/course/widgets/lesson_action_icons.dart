@@ -7,6 +7,7 @@ abstract final class LessonActionIcons {
   static const cards = 'assets/icons/lesson/cards.svg';
   static const rankingStar = 'assets/icons/lesson/ranking_star.svg';
   static const play = 'assets/icons/lesson/play.svg';
+  static const videos = 'assets/icons/lesson/videos.svg';
   static const checkmark = 'assets/icons/lesson/checkmark.svg';
   static const trophy = 'assets/icons/lesson/trophy.svg';
   static const dumbbell = 'assets/icons/lesson/dumbbell.svg';

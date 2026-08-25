@@ -7,11 +7,12 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../../../data/quizzes/answered_question_models.dart';
+import 'exam_review_answer_layout.dart';
 import 'exam_review_mcq_answer.dart';
 import 'exam_review_text_answer.dart';
 import 'exam_review_type_badge.dart';
 
-class ExamReviewQuestionCard extends StatefulWidget {
+class ExamReviewQuestionCard extends StatelessWidget {
   const ExamReviewQuestionCard({
     super.key,
     required this.question,
@@ -22,117 +23,121 @@ class ExamReviewQuestionCard extends StatefulWidget {
   final int index;
 
   @override
-  State<ExamReviewQuestionCard> createState() => _ExamReviewQuestionCardState();
-}
-
-class _ExamReviewQuestionCardState extends State<ExamReviewQuestionCard> {
-  var _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final q = widget.question;
-    final borderColor =
-        _hovered ? const Color(0xFF2072E0) : const Color(0xFF313648);
-    final shadowColor =
-        _hovered ? const Color(0x262072E0) : const Color(0x1A000000);
+    final q = question;
 
     return Directionality(
       textDirection: TextDirection.ltr,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFF12161F),
+      child: ReviewHoverHighlight(
+        builder: (context, highlighted) {
+          final borderColor =
+              highlighted ? const Color(0xFF2072E0) : const Color(0xFF313648);
+          final shadowColor =
+              highlighted ? const Color(0x262072E0) : const Color(0x1A000000);
 
-            borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
-            border: Border.all(color: borderColor),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: _hovered ? 30 : 6,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Padding(
-
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (q.teacherReview?.text?.isNotEmpty == true) ...[
-                  _TeacherReviewBox(text: q.teacherReview!.text!),
-                  const SizedBox(height: AppSpacing.base),
-                ],
-
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            alignment: WrapAlignment.start,
-                            children: [
-                              _IndexBadge(index: widget.index),
-                              ExamReviewTypeBadge(type: q.type),
-                              if (!q.isPassage)
-                                _CorrectnessBadge(isCorrect: q.isCorrect),
-                            ],
-                          ),
-                          if (!q.isPassage && q.plainTitle.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            _ReviewTitle(text: q.plainTitle),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (!q.isPassage) ...[
-                      const SizedBox(width: 16),
-                      _PointsBadge(
-                        awarded: q.awardedPoints,
-                        total: q.points,
-                      ),
-                    ],
-                  ],
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xFF12161F),
+              borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
+              border: Border.all(color: borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: shadowColor,
+                  blurRadius: highlighted ? 30 : 6,
+                  offset: const Offset(0, 4),
                 ),
-                if (q.isPassage && q.plainTitle.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _ReviewTitle(text: q.plainTitle),
-                ],
-                if (q.isPassage && q.childQuestions.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  ...q.childQuestions.asMap().entries.map(
-                        (entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: ExamReviewQuestionCard(
-                            question: entry.value,
-                            index: entry.key,
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (q.teacherReview?.text?.isNotEmpty == true) ...[
+                    _TeacherReviewBox(text: q.teacherReview!.text!),
+                    const SizedBox(height: AppSpacing.base),
+                  ],
+                  _QuestionHeader(question: q, index: index),
+                  if (q.plainTitle.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _ReviewTitle(text: q.plainTitle),
+                  ],
+                  if (q.isPassage && q.childQuestions.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ...q.childQuestions.asMap().entries.map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: ExamReviewQuestionCard(
+                              question: entry.value,
+                              index: entry.key,
+                            ),
                           ),
                         ),
-                      ),
-                ] else if (q.isMcq) ...[
-                  const SizedBox(height: 16),
-                  const Divider(color: Color(0xFF313648), height: 1),
-                  const SizedBox(height: 16),
-                  ExamReviewMcqAnswer(question: q),
-                ] else if (!q.isPassage) ...[
-                  const SizedBox(height: 16),
-                  const Divider(color: Color(0xFF313648), height: 1),
-                  const SizedBox(height: 16),
-                  ExamReviewTextAnswer(question: q),
+                  ] else if (q.isMcq) ...[
+                    const SizedBox(height: 16),
+                    const Divider(color: Color(0xFF313648), height: 1),
+                    const SizedBox(height: 16),
+                    ExamReviewMcqAnswer(question: q),
+                  ] else if (!q.isPassage) ...[
+                    const SizedBox(height: 16),
+                    const Divider(color: Color(0xFF313648), height: 1),
+                    const SizedBox(height: 16),
+                    ExamReviewTextAnswer(question: q),
+                  ],
                 ],
-              ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _QuestionHeader extends StatelessWidget {
+  const _QuestionHeader({required this.question, required this.index});
+
+  final AnsweredQuizQuestion question;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = question;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _IndexBadge(index: index),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ExamReviewTypeBadge(type: q.type),
+                  if (!q.isPassage) ...[
+                    const SizedBox(width: 8),
+                    _CorrectnessBadge(isCorrect: q.isCorrect),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
+        if (!q.isPassage) ...[
+          const SizedBox(width: 8),
+          _PointsBadge(
+            awarded: q.awardedPoints,
+            total: q.points,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -144,18 +149,13 @@ class _ReviewTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final direction = QuizHtmlText.detectTextDirection(text);
-    return Directionality(
-      textDirection: direction,
-      child: Text(
-        text,
-        textAlign: TextAlign.start,
-        style: AppTypography.bodyMd.copyWith(
-          color: const Color(0xFFE5E7EB),
-          fontWeight: AppFonts.medium,
-          height: 1.625,
-          fontSize: 16,
-        ),
+    return ReviewFlowingText(
+      text: text,
+      style: AppTypography.bodyMd.copyWith(
+        color: const Color(0xFFE5E7EB),
+        fontWeight: AppFonts.medium,
+        height: 1.625,
+        fontSize: 16,
       ),
     );
   }

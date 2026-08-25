@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_durations.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -27,24 +28,22 @@ class IncompleteTasksCategoryBar extends StatelessWidget {
         .where((category) => (counts[category] ?? 0) > 0)
         .toList();
 
-    return SizedBox(
-      height: AppSpacing.incompleteTaskTabBarHeight,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        padding: EdgeInsets.zero,
-        itemCount: visible.length,
-        separatorBuilder: (context, index) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (context, index) {
-          final category = visible[index];
-          final count = counts[category] ?? 0;
-          return _CategoryChip(
-            category: category,
-            count: count,
-            isSelected: category == selected,
-            onTap: () => onSelected(category),
-          );
-        },
+    // Web: flex gap-2 overflow-x-auto, button height ~44px (py-2.5 + text-sm).
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: [
+          for (var i = 0; i < visible.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.sm),
+            _CategoryChip(
+              category: visible[i],
+              count: counts[visible[i]] ?? 0,
+              isSelected: visible[i] == selected,
+              onTap: () => onSelected(visible[i]),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -69,6 +68,7 @@ class _CategoryChip extends StatefulWidget {
 
 class _CategoryChipState extends State<_CategoryChip> {
   var _hovered = false;
+  var _pressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -83,19 +83,27 @@ class _CategoryChipState extends State<_CategoryChip> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: AppRadius.borderTailwindXl,
-          child: Ink(
-            padding: const EdgeInsetsDirectional.symmetric(
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.98 : 1,
+          duration: AppDurations.tab,
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: AppDurations.tab,
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.base,
               vertical: AppSpacing.smPlus,
             ),
             decoration: BoxDecoration(
               gradient: isSelected ? style.chipActiveGradient : null,
-              color: isSelected ? null : IncompleteCategoryStyle.chipInactiveBackground,
+              color: isSelected
+                  ? null
+                  : IncompleteCategoryStyle.chipInactiveBackground,
               borderRadius: AppRadius.borderTailwindXl,
               border: Border.all(
                 color: isSelected
@@ -105,29 +113,38 @@ class _CategoryChipState extends State<_CategoryChip> {
                         : Colors.transparent,
                 width: 2,
               ),
-              boxShadow: isSelected ? AppShadows.lg : null,
+              boxShadow: isSelected ? AppShadows.tailwindLg : null,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IncompleteTaskIcons.chipIcon(
-                  widget.category,
-                  isActive: isSelected,
-                  hovered: _hovered,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  widget.category.label,
-                  style: AppTypography.custom(
-                    fontSize: 14,
-                    fontWeight: AppFonts.medium,
-                    color: labelColor,
-                    height: 1.25,
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.noScaling,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IncompleteTaskIcons.chipIcon(
+                    widget.category,
+                    isActive: isSelected,
+                    hovered: _hovered,
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                _CountBadge(count: widget.count, isActive: isSelected),
-              ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    widget.category.label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTypography.custom(
+                      // Web `text-sm font-medium`. Bahij only has 300/700;
+                      // browsers map 500 → SemiLight (300).
+                      fontSize: 14,
+                      fontWeight: AppFonts.regular,
+                      color: labelColor,
+                      height: 20 / 14,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  _CountBadge(count: widget.count, isActive: isSelected),
+                ],
+              ),
             ),
           ),
         ),
@@ -150,7 +167,7 @@ class _CountBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xxs,
+        vertical: 2,
       ),
       decoration: BoxDecoration(
         color: isActive
@@ -161,12 +178,13 @@ class _CountBadge extends StatelessWidget {
       child: Text(
         '$count',
         style: AppTypography.custom(
+          // Web `text-xs font-semibold`. Bahij maps 600 → Bold (700).
           fontSize: 12,
-          fontWeight: AppFonts.semibold,
+          fontWeight: AppFonts.bold,
           color: isActive
               ? IncompleteCategoryStyle.countBadgeActiveText
               : IncompleteCategoryStyle.countBadgeInactiveText,
-          height: 1.2,
+          height: 16 / 12,
         ),
       ),
     );

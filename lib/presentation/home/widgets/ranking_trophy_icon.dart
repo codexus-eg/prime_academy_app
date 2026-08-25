@@ -6,101 +6,135 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
 
+/// Web `BsFillTrophyFill` from RankTable (`react-icons/bs`),
+/// copied from Bootstrap Icons `trophy-fill.svg`.
 class RankingTrophyIcon extends StatefulWidget {
   const RankingTrophyIcon({
     super.key,
     required this.rank,
-    this.size = 20,
   });
 
   final int rank;
-  final double size;
 
   @override
   State<RankingTrophyIcon> createState() => _RankingTrophyIconState();
 }
 
 class _RankingTrophyIconState extends State<RankingTrophyIcon>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _asset = 'assets/icons/ranking/trophy_fill.svg';
 
-  late final AnimationController _controller;
+  late final AnimationController _idle;
+  late final AnimationController _hover;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _idle = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
+      duration: const Duration(seconds: 3),
+    );
+    _hover = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    if (widget.rank == 1) {
+      _idle.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant RankingTrophyIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rank == 1 && !_idle.isAnimating) {
+      _idle.repeat();
+    } else if (widget.rank != 1 && _idle.isAnimating) {
+      _idle
+        ..stop()
+        ..value = 0;
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _idle.dispose();
+    _hover.dispose();
     super.dispose();
   }
 
   Color? get _iconColor => switch (widget.rank) {
         1 => AppColors.rankGold,
-        2 => AppColors.rankSilver,
-        3 => AppColors.rankBronze,
+        2 => AppColors.rankSilverLight,
+        3 => AppColors.rankBronzeDark,
         _ => null,
       };
 
-  Color? get _glowColor => switch (widget.rank) {
-        1 => AppColors.rankGold,
-        2 => AppColors.rankSilver,
-        3 => AppColors.rankBronze,
-        _ => null,
-      };
+  double get _iconSize => widget.rank == 1 ? 20 : 16;
 
   @override
   Widget build(BuildContext context) {
     final color = _iconColor;
     if (color == null) {
-      return SizedBox(width: widget.size, height: widget.size);
+      return const SizedBox(width: 20, height: 20);
     }
 
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final phase = Curves.easeInOut.transform(
-            (math.sin(_controller.value * math.pi * 2) + 1) / 2,
-          );
-          final blurSigma = phase * 2;
-          final glowOpacity = 0.4 + (phase * 0.2);
+    return MouseRegion(
+      onEnter: (_) => _hover.forward(),
+      onExit: (_) => _hover.reverse(),
+      child: SizedBox(
+        width: 20,
+        height: 20,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_idle, _hover]),
+          builder: (context, child) {
+            final pingPong = widget.rank == 1
+                ? Curves.easeInOut.transform(
+                    _idle.value <= 0.5
+                        ? _idle.value * 2
+                        : (1 - _idle.value) * 2,
+                  )
+                : 0.0;
+            final hoverT = Curves.easeInOut.transform(_hover.value);
+            final idleScale = 1.0 + (0.15 * pingPong);
+            final scale = hoverT > 0
+                ? 1.0 + (0.2 * hoverT)
+                : idleScale;
+            final rotation = hoverT * 10 * math.pi / 180;
+            final glowBlur = 1.0 + (3.0 * pingPong);
+            final glowOpacity = 0.6 + (0.3 * pingPong);
 
-          return Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              if (_glowColor != null)
-                ImageFiltered(
-                  imageFilter: ImageFilter.blur(
-                    sigmaX: blurSigma,
-                    sigmaY: blurSigma,
-                  ),
-                  child: Opacity(
-                    opacity: glowOpacity,
-                    child: _TrophySvg(
-                      asset: _asset,
-                      size: widget.size,
-                      color: _glowColor!,
-                    ),
-                  ),
+            return Transform.rotate(
+              angle: rotation,
+              child: Transform.scale(
+                scale: scale,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    if (widget.rank == 1)
+                      ImageFiltered(
+                        imageFilter: ImageFilter.blur(
+                          sigmaX: glowBlur,
+                          sigmaY: glowBlur,
+                        ),
+                        child: Opacity(
+                          opacity: glowOpacity,
+                          child: _TrophySvg(
+                            size: _iconSize,
+                            color: AppColors.rankGold,
+                          ),
+                        ),
+                      ),
+                    child!,
+                  ],
                 ),
-              child!,
-            ],
-          );
-        },
-        child: _TrophySvg(
-          asset: _asset,
-          size: widget.size,
-          color: color,
+              ),
+            );
+          },
+          child: _TrophySvg(
+            size: _iconSize,
+            color: color,
+          ),
         ),
       ),
     );
@@ -109,19 +143,17 @@ class _RankingTrophyIconState extends State<RankingTrophyIcon>
 
 class _TrophySvg extends StatelessWidget {
   const _TrophySvg({
-    required this.asset,
     required this.size,
     required this.color,
   });
 
-  final String asset;
   final double size;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return SvgPicture.asset(
-      asset,
+      _RankingTrophyIconState._asset,
       width: size,
       height: size,
       fit: BoxFit.contain,

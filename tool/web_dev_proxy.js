@@ -57,8 +57,16 @@ function resolveRoute(url) {
   return null;
 }
 
+function joinTargetUrl(targetOrigin, targetPath) {
+  // Absolute paths (starting with `/`) replace the entire pathname of the base
+  // URL. Keep prefixes like `/primeacademy` by joining as a relative segment.
+  const base = targetOrigin.endsWith('/') ? targetOrigin : `${targetOrigin}/`;
+  const relative = targetPath.startsWith('/') ? targetPath.slice(1) : targetPath;
+  return new URL(relative, base);
+}
+
 function proxyRequest(req, res, targetOrigin, targetPath) {
-  const targetUrl = new URL(targetPath, targetOrigin);
+  const targetUrl = joinTargetUrl(targetOrigin, targetPath);
 
   const headers = { ...req.headers, host: targetUrl.host };
   delete headers.origin;

@@ -26,18 +26,26 @@ class ExamReviewQuestionList extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      shrinkWrap: shrinkWrap,
-      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
+    final cards = <Widget>[
+      for (var i = 0; i < questions.length; i++) ...[
+        if (i > 0) const SizedBox(height: 16),
+        ExamReviewQuestionCard(
+          question: questions[i],
+          index: i,
+        ),
+      ],
+    ];
+
+    if (shrinkWrap) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: cards,
+      );
+    }
+
+    return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      itemCount: questions.length,
-      separatorBuilder: (context, _) => const SizedBox(height: 24),
-      itemBuilder: (context, index) {
-        return ExamReviewQuestionCard(
-          question: questions[index],
-          index: index,
-        );
-      },
+      children: cards,
     );
   }
 }

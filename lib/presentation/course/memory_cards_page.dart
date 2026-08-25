@@ -214,15 +214,21 @@ class _MemoryCardsPageState extends State<MemoryCardsPage>
   }
 
   void _setFlipped(bool value) {
-    setState(() => _isFlipped = value);
     _behindTimer?.cancel();
+    if (value) {
+      // Match web: hide the stacked card immediately so the flip shows
+      // empty space behind, not the next card through the rotating face.
+      setState(() {
+        _isFlipped = true;
+        _behindHidden = true;
+      });
+      return;
+    }
+
+    setState(() => _isFlipped = false);
     _behindTimer = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      if (_isFlipped) {
-        setState(() => _behindHidden = true);
-      } else {
-        setState(() => _behindHidden = false);
-      }
+      if (!mounted || _isFlipped) return;
+      setState(() => _behindHidden = false);
     });
   }
 

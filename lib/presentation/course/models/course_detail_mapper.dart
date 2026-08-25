@@ -8,6 +8,7 @@ abstract final class CourseDetailMapper {
     return CourseDetail(
       id: '${course.id}',
       title: course.title,
+      isEnrolled: course.isEnrolled,
       units: [
         for (final module in course.modules) _mapModule(course, module),
       ],

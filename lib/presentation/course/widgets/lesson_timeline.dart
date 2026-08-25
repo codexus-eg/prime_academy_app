@@ -19,12 +19,16 @@ class LessonTimeline extends StatelessWidget {
     required this.unitId,
     required this.lessons,
     this.dotColor = AppColors.blue,
+    this.showProgressRing = false,
+    this.onLessonClosed,
   });
 
   final String courseId;
   final String unitId;
   final List<CourseLesson> lessons;
   final Color dotColor;
+  final bool showProgressRing;
+  final VoidCallback? onLessonClosed;
 
   static const rowSpacing = AppSpacing.sm;
   static const iconSize = LessonStatusIcon.size;
@@ -50,6 +54,7 @@ class LessonTimeline extends StatelessWidget {
               lesson: lessons[i],
               isLast: i == lessons.length - 1,
               dotColor: dotColor,
+              showProgressRing: showProgressRing,
               onTap: () => _openLesson(context, lessons[i]),
             ),
           ],
@@ -58,36 +63,38 @@ class LessonTimeline extends StatelessWidget {
     );
   }
 
-  void _openLesson(BuildContext context, CourseLesson lesson) {
+  Future<void> _openLesson(BuildContext context, CourseLesson lesson) async {
 
     if (lesson.locked) return;
 
     if (lesson.isExternal) {
       final url = lesson.externalUrl;
       if (url != null && url.isNotEmpty) {
-        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       }
       return;
     }
 
     if (lesson.isChallenge) {
       final quizId = int.tryParse(lesson.id) ?? 0;
-      context.push(
+      await context.push(
         ExamPage.pathFor(
           courseId: courseId,
           unitId: unitId,
           quizId: quizId,
         ),
       );
+      onLessonClosed?.call();
       return;
     }
-    context.push(
+    await context.push(
       LessonDetailPage.pathFor(
         courseId: courseId,
         unitId: unitId,
         lessonId: lesson.id,
       ),
     );
+    onLessonClosed?.call();
   }
 }
 
@@ -96,12 +103,14 @@ class _LessonTimelineRow extends StatelessWidget {
     required this.lesson,
     required this.isLast,
     required this.dotColor,
+    required this.showProgressRing,
     required this.onTap,
   });
 
   final CourseLesson lesson;
   final bool isLast;
   final Color dotColor;
+  final bool showProgressRing;
   final VoidCallback onTap;
 
   @override
@@ -143,7 +152,14 @@ class _LessonTimelineRow extends StatelessWidget {
               width: LessonTimeline.iconColumnWidth,
               child: Center(
                 child: LessonStatusIcon(
-                  status: lesson.status,
+                  progressPercent: lesson.isLessonItem && showProgressRing
+                      ? lesson.progressPercent
+                      : 0,
+                  hasTrophy: lesson.isLessonItem &&
+                      showProgressRing &&
+                      lesson.hasTrophy,
+                  showProgressRing:
+                      lesson.isLessonItem && showProgressRing,
                   progressColor: dotColor,
                 ),
               ),

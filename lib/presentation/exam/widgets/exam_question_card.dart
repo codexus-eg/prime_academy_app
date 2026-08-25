@@ -28,6 +28,7 @@ class ExamQuestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textDirection = QuizHtmlText.detectTextDirection(prompt);
+    // Same as web QuestionTitle: "سؤال" / "Question" follows input language.
     final rtl = isRtl || textDirection == TextDirection.rtl;
 
     return SizedBox(
@@ -41,17 +42,21 @@ class ExamQuestionCard extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final maxWidth = constraints.maxWidth;
-
               final cardWidth = maxWidth * 0.95;
               final minWidth =
                   maxWidth >= 640 ? maxWidth * 0.6 : maxWidth * 0.95;
+
+              // Web: text-[1.1rem] md:text-2xl
+              final isMd = maxWidth >= 768;
+              final promptFontSize = isMd ? 24.0 : 17.6;
+              // Web min-h-40; grow with prompt so long questions are fully visible.
+              final minCardHeight = isMd ? 200.0 : 160.0;
 
               return Align(
                 alignment: Alignment.topCenter,
                 child: Container(
                   width: cardWidth.clamp(minWidth, cardWidth),
-
-                  height: 160,
+                  constraints: BoxConstraints(minHeight: minCardHeight),
                   margin: const EdgeInsets.only(top: 32),
                   decoration: BoxDecoration(
                     color: AppColors.examPanelBg,
@@ -137,98 +142,93 @@ class ExamQuestionCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Align(
-                            alignment: Alignment.topCenter,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Directionality(
-                                  textDirection: TextDirection.ltr,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      4,
-                                      4,
-                                      4,
-                                      0,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const ExamQuestionHexBadge(),
-                                            const SizedBox(
-                                              width: AppSpacing.md,
-                                            ),
-                                            Text(
-                                              rtl ? 'سؤال' : 'Question',
-                                              style: AppTypography.bodySm
-                                                  .copyWith(
-                                                color: const Color(0xFF5AB4FF),
-                                                fontWeight: AppFonts.bold,
-                                                letterSpacing: rtl ? 0 : 1.6,
-                                                shadows: const [
-                                                  Shadow(
-                                                    color: Color(0xB3007BFF),
-                                                    blurRadius: 10,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: AppSpacing.xl,
-                                            ),
-                                            child: ExamProgressBar(
-                                              progressPercentage:
-                                                  progressPercentage,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    4,
+                                    4,
+                                    4,
+                                    0,
                                   ),
-                                ),
-                                const SizedBox(height: 32),
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 80,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      AppSpacing.xl,
-                                      0,
-                                      AppSpacing.xl,
-                                      AppSpacing.md,
-                                    ),
-                                    child: QuizHtmlText(
-                                      html: prompt,
-                                      textAlign: TextAlign.center,
-                                      baseStyle: AppTypography.size20.copyWith(
-                                        color: AppColors.onDark,
-                                        fontWeight: AppFonts.regular,
-                                        height: 1.45,
-                                        shadows: const [
-                                          Shadow(
-                                            color: Color(0xCC000000),
-                                            blurRadius: 10,
-                                            offset: Offset(0, 2),
+                                  child: Row(
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const ExamQuestionHexBadge(),
+                                          const SizedBox(
+                                            width: AppSpacing.md,
                                           ),
-                                          Shadow(
-                                            color: Color(0x26007BFF),
-                                            blurRadius: 20,
+                                          Text(
+                                            rtl ? 'سؤال' : 'Question',
+                                            style:
+                                                AppTypography.bodySm.copyWith(
+                                              color: const Color(0xFF5AB4FF),
+                                              fontWeight: AppFonts.bold,
+                                              letterSpacing: rtl ? 0 : 1.6,
+                                              shadows: const [
+                                                Shadow(
+                                                  color: Color(0xB3007BFF),
+                                                  blurRadius: 10,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: AppSpacing.xl,
+                                          ),
+                                          child: ExamProgressBar(
+                                            progressPercentage:
+                                                progressPercentage,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              // Compact on small screens → more room for prompt.
+                              SizedBox(height: isMd ? 16 : 8),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  12,
+                                  24,
+                                  24,
+                                ),
+                                child: QuizHtmlText(
+                                  html: prompt,
+                                  textAlign: TextAlign.center,
+                                  baseStyle: AppTypography.custom(
+                                    fontSize: promptFontSize,
+                                    fontWeight: AppFonts.regular,
+                                    color: AppColors.onDark,
+                                    height: 1.35,
+                                  ).copyWith(
+                                    shadows: const [
+                                      Shadow(
+                                        color: Color(0xCC000000),
+                                        blurRadius: 10,
+                                        offset: Offset(0, 2),
+                                      ),
+                                      Shadow(
+                                        color: Color(0x26007BFF),
+                                        blurRadius: 20,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const Positioned(
                             bottom: 12,

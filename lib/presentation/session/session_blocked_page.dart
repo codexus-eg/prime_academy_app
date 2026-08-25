@@ -6,6 +6,7 @@ import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../home/widgets/app_nav_scaffold.dart';
 
 class SessionBlockedPage extends StatelessWidget {
   const SessionBlockedPage({super.key});
@@ -15,10 +16,9 @@ class SessionBlockedPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppNavScaffold(
       backgroundColor: const Color(0xFF0F1217),
-      body: SafeArea(
-        child: Padding(
+      body: Padding(
           padding: AppSpacing.pageContentHorizontalPadding,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -84,7 +84,6 @@ class SessionBlockedPage extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -97,10 +96,9 @@ class SessionErrorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppNavScaffold(
       backgroundColor: const Color(0xFF0F1217),
-      body: SafeArea(
-        child: Padding(
+      body: Padding(
           padding: AppSpacing.pageContentHorizontalPadding,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -165,7 +163,6 @@ class SessionErrorPage extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

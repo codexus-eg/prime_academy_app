@@ -205,7 +205,11 @@ class _LessonListTile extends StatelessWidget {
           child: Row(
             children: [
               if (isCompleted)
-                LessonStatusIcon(status: lesson.status)
+                LessonStatusIcon(
+                  progressPercent: lesson.progressPercent,
+                  hasTrophy: lesson.hasTrophy,
+                  showProgressRing: true,
+                )
               else
                 _PlayCircle(),
               const SizedBox(width: AppSpacing.md),

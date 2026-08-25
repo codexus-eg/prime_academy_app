@@ -1,5 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -7,6 +5,7 @@ import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import 'exam_glass_panel.dart';
 import 'exam_graduation_badge.dart';
 import 'exam_ready_icons.dart';
 
@@ -35,22 +34,15 @@ class ExamReadyState extends StatefulWidget {
 class _ExamReadyStateState extends State<ExamReadyState>
     with SingleTickerProviderStateMixin {
   late final AnimationController _enterController;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
 
   @override
   void initState() {
     super.initState();
+    // Web QuizReadyState: duration 0.3s, ease [0,0,0.2,1], y: -10
     _enterController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _fade = CurvedAnimation(parent: _enterController, curve: Curves.easeOut);
-    _slide = Tween<Offset>(
-      begin: const Offset(0, -0.06),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
-    _enterController.forward();
+      duration: const Duration(milliseconds: 300),
+    )..forward();
   }
 
   @override
@@ -79,158 +71,124 @@ class _ExamReadyStateState extends State<ExamReadyState>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(
-        position: _slide,
-        child: Padding(
-          padding: const EdgeInsetsDirectional.symmetric(
-            horizontal: AppSpacing.pageContentHorizontal,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 512),
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.topCenter,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 32),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.tailwind2xl),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                      child: Stack(
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(40, 56, 40, 40),
-                            decoration: BoxDecoration(
-                              color: AppColors.examPanelBg,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.tailwind2xl),
-                              border: Border.all(
-                                color: AppColors.examPanelBorder,
-                                width: 2,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x26007BFF),
-                                  blurRadius: 80,
-                                ),
-                              ],
+    final panel = Padding(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.pageContentHorizontal,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 512),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.topCenter,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: ExamGlassPanel(
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _title,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.size36.copyWith(
+                          color: AppColors.onDark,
+                          fontWeight: AppFonts.extrabold,
+                          height: 1.15,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0x1AFFFFFF),
+                              blurRadius: 10,
                             ),
-                            child: Directionality(
-                              textDirection: TextDirection.rtl,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _title,
-                                    textAlign: TextAlign.center,
-                                    style: AppTypography.size36.copyWith(
-                                      color: AppColors.onDark,
-                                      fontWeight: AppFonts.extrabold,
-                                      height: 1.15,
-                                      shadows: const [
-                                        Shadow(
-                                          color: Color(0x1AFFFFFF),
-                                          blurRadius: 10,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                    _subtitle,
-                                    textAlign: TextAlign.center,
-                                    style: AppTypography.bodyMd.copyWith(
-                                      color: AppColors.tabInactive,
-                                      fontWeight: AppFonts.medium,
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.xl),
-                                  _ReadyTrackBar(
-                                    progressPercent: widget.progressPercent,
-                                  ),
-                                  if (widget.startDateLabel != null) ...[
-                                    const SizedBox(height: AppSpacing.base),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const ExamClockIcon(),
-                                        const SizedBox(width: AppSpacing.sm),
-                                        Text(
-                                          'تاريخ البدء: ${widget.startDateLabel}',
-                                          style: AppTypography.bodySm.copyWith(
-                                            color: AppColors.tabInactive,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                  const SizedBox(height: AppSpacing.xl),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _SecondaryButton(
-                                          label: 'خروج',
-                                          onTap: widget.onExit,
-                                        ),
-                                      ),
-                                      const SizedBox(width: AppSpacing.base),
-                                      Expanded(
-                                        child: _PrimaryButton(
-                                          label: _startLabel,
-                                          onTap: widget.onStart,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppSpacing.base),
-                                  Text(
-                                    'تأكد من استقرار اتصال الإنترنت قبل بدء الاختبار',
-                                    textAlign: TextAlign.center,
-                                    style: AppTypography.badge.copyWith(
-                                      color: AppColors.gray500.withValues(alpha: 0.8),
-                                      fontWeight: AppFonts.bold,
-                                    ),
-                                  ),
-                                ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        _subtitle,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyMd.copyWith(
+                          color: AppColors.tabInactive,
+                          fontWeight: AppFonts.medium,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      _ReadyTrackBar(
+                        progressPercent: widget.progressPercent,
+                      ),
+                      if (widget.startDateLabel != null) ...[
+                        const SizedBox(height: AppSpacing.base),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const ExamClockIcon(),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              'تاريخ البدء: ${widget.startDateLabel}',
+                              style: AppTypography.bodySm.copyWith(
+                                color: AppColors.tabInactive,
                               ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.xl),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _SecondaryButton(
+                              label: 'خروج',
+                              onTap: widget.onExit,
                             ),
                           ),
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.tailwind2xl),
-                                  gradient: RadialGradient(
-                                    center: Alignment.center,
-                                    radius: 1.1,
-                                    colors: [
-                                      AppColors.examAccentBlue.withValues(alpha: 0.05),
-                                      Colors.transparent,
-                                    ],
-                                  ),
-                                ),
-                              ),
+                          const SizedBox(width: AppSpacing.base),
+                          Expanded(
+                            child: _PrimaryButton(
+                              label: _startLabel,
+                              onTap: widget.onStart,
                             ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.base),
+                      Text(
+                        'تأكد من استقرار اتصال الإنترنت قبل بدء الاختبار',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.badge.copyWith(
+                          color: AppColors.gray500.withValues(alpha: 0.8),
+                          fontWeight: AppFonts.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Positioned(
-                  top: 0,
-                  child: ExamGraduationBadge(),
-                ),
-              ],
+              ),
             ),
-          ),
+            const Positioned(
+              top: 0,
+              child: ExamGraduationBadge(),
+            ),
+          ],
         ),
       ),
+    );
+
+    // Opacity/Transform layers break BackdropFilter — unwrap after enter.
+    return AnimatedBuilder(
+      animation: _enterController,
+      child: panel,
+      builder: (context, child) {
+        if (_enterController.isCompleted) return child!;
+        final t = Curves.easeOut.transform(_enterController.value);
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, -10 * (1 - t)),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
@@ -246,7 +204,7 @@ class _ReadyTrackBar extends StatelessWidget {
     return Row(
       children: [
         const ExamCheckeredFlagIcon(),
-        const SizedBox(width: AppSpacing.sm),
+        const SizedBox(width: 12),
         Expanded(
           child: Container(
             height: 24,
@@ -283,7 +241,7 @@ class _ReadyTrackBar extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: AppSpacing.sm),
+        const SizedBox(width: 12),
         const ExamRunningIcon(),
       ],
     );

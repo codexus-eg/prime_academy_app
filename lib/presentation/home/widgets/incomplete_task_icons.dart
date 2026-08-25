@@ -14,12 +14,12 @@ abstract final class IncompleteTaskIcons {
     bool hovered = false,
   }) {
     if (category == IncompleteTaskCategory.luckCards) {
-      return SizedBox(
+      return const SizedBox(
         width: 20,
         height: 20,
         child: Center(
           child: MysteryCardIcon(
-            size: 20,
+            size: 16,
             cardColor: AppColors.primary,
             symbolColor: Colors.black,
           ),
@@ -44,7 +44,7 @@ abstract final class IncompleteTaskIcons {
       );
     }
 
-    return categoryIcon(category, size: 22, isActive: true);
+    return categoryIcon(category, size: 20, isActive: true);
   }
 
   static Widget categoryIcon(
@@ -60,12 +60,20 @@ abstract final class IncompleteTaskIcons {
             ? IncompleteCategoryStyle.chipActiveText
             : IncompleteCategoryStyle.chipInactiveIcon;
 
-    return SvgPicture.asset(
+    // CSS `currentColor: rgba(...)` applies alpha as opacity. Flutter
+    // ColorFilter.srcIn with an alpha color darkens the glyph; split them.
+    final opacity = color.a;
+    final painted = color.withValues(alpha: 1);
+    Widget icon = SvgPicture.asset(
       style.iconAsset,
       width: size,
       height: size,
       fit: BoxFit.contain,
-      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(painted, BlendMode.srcIn),
     );
+    if (opacity < 1) {
+      icon = Opacity(opacity: opacity, child: icon);
+    }
+    return icon;
   }
 }

@@ -7,22 +7,33 @@ import 'package:flutter/scheduler.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 
-class ExamStarryBackground extends StatefulWidget {
-  const ExamStarryBackground({super.key});
+/// Owns the quiz backdrop ticker + glyphs so the full-screen layer and the
+/// frosted card can paint the exact same moving symbols.
+class ExamBackdropHost extends StatefulWidget {
+  const ExamBackdropHost({super.key, required this.child});
+
+  final Widget child;
+
+  static ExamBackdropHostState? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<_ExamBackdropScope>()?.state;
+  }
 
   @override
-  State<ExamStarryBackground> createState() => _ExamStarryBackgroundState();
+  State<ExamBackdropHost> createState() => ExamBackdropHostState();
 }
 
-class _ExamStarryBackgroundState extends State<ExamStarryBackground>
+class ExamBackdropHostState extends State<ExamBackdropHost>
     with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-  Duration _elapsed = Duration.zero;
-  List<_Glyph> _glyphs = const [];
-  bool? _wasMobile;
+  final LayerLink layerLink = LayerLink();
+  final ValueNotifier<double> tSec = ValueNotifier<double>(0);
 
-  static final _letters =
-      'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
+  late final Ticker _ticker;
+  List<_Glyph> _glyphs = const [];
+  List<TextPainter> _textPainters = const [];
+  bool? _wasMobile;
+  int _generation = 0;
+
+  static final _letters = 'ابتثجحخدذرزسشصضطظعغفقكلمنهوي'.split('');
   static const _math = [
     '+', '−', '×', '÷', '=', '≈', '≠', '≤', '≥', 'π', '∑', '∫', '√', '∞',
     '%', 'Δ', 'θ', 'α', 'β', 'λ', '∂', '∇', '²', '³',
@@ -37,21 +48,44 @@ class _ExamStarryBackgroundState extends State<ExamStarryBackground>
   void initState() {
     super.initState();
     _ticker = createTicker((elapsed) {
-      _elapsed = elapsed;
-      setState(() {});
-    })
-      ..start();
+      tSec.value = elapsed.inMicroseconds / 1e6;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    if (reduce) {
+      if (_ticker.isActive) _ticker.stop();
+      tSec.value = 0;
+    } else if (!_ticker.isActive) {
+      _ticker.start();
+    }
+    _ensureGlyphs(MediaQuery.sizeOf(context).width < 768);
   }
 
   @override
   void dispose() {
     _ticker.dispose();
+    tSec.dispose();
+    _disposePainters();
     super.dispose();
+  }
+
+  void _disposePainters() {
+    for (final painter in _textPainters) {
+      painter.dispose();
+    }
+    _textPainters = const [];
   }
 
   void _ensureGlyphs(bool mobile) {
     if (_wasMobile == mobile && _glyphs.isNotEmpty) return;
+    final notify = _glyphs.isNotEmpty;
     _wasMobile = mobile;
+    _disposePainters();
+
     final random = math.Random();
     final count = mobile ? 45 : 70;
     _glyphs = List.generate(count, (_) {
@@ -94,26 +128,115 @@ class _ExamStarryBackgroundState extends State<ExamStarryBackground>
         color: color,
       );
     });
+
+    _textPainters = [
+      for (final glyph in _glyphs)
+        TextPainter(
+          text: TextSpan(text: glyph.text, style: _labelStyle(glyph)),
+          textDirection: glyph.kind == _GlyphKind.letter
+              ? TextDirection.rtl
+              : TextDirection.ltr,
+          maxLines: 1,
+        )..layout(),
+    ];
+    if (notify) {
+      _generation++;
+      setState(() {});
+    }
+  }
+
+  CustomPainter createPainter() {
+    return _QuizBackgroundPainter(
+      tSec: tSec,
+      glyphs: _glyphs,
+      painters: _textPainters,
+      mobile: _wasMobile ?? true,
+    );
+  }
+
+  static TextStyle _labelStyle(_Glyph glyph) {
+    final color = glyph.color.withValues(alpha: glyph.color.a * glyph.baseOpacity);
+    switch (glyph.kind) {
+      case _GlyphKind.letter:
+        return TextStyle(
+          fontFamily: AppFonts.bahij,
+          fontSize: glyph.size,
+          fontWeight: FontWeight.w600,
+          height: 1,
+          color: color,
+        );
+      case _GlyphKind.math:
+        return TextStyle(
+          fontSize: glyph.size,
+          fontStyle: FontStyle.italic,
+          fontWeight: FontWeight.w500,
+          height: 1,
+          color: color,
+          fontFamilyFallback: const ['Georgia', 'Times New Roman', 'serif'],
+        );
+      case _GlyphKind.chem:
+        return TextStyle(
+          fontSize: glyph.size,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+          height: 1,
+          color: color,
+          fontFamilyFallback: const ['Courier New', 'monospace'],
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final mobile = size.width < 768;
-    _ensureGlyphs(mobile);
-    final tSec = _elapsed.inMicroseconds / 1e6;
+    return _ExamBackdropScope(
+      state: this,
+      generation: _generation,
+      child: widget.child,
+    );
+  }
+}
+
+class _ExamBackdropScope extends InheritedWidget {
+  const _ExamBackdropScope({
+    required this.state,
+    required this.generation,
+    required super.child,
+  });
+
+  final ExamBackdropHostState state;
+  final int generation;
+
+  @override
+  bool updateShouldNotify(_ExamBackdropScope oldWidget) {
+    return oldWidget.generation != generation;
+  }
+}
+
+class ExamStarryBackground extends StatelessWidget {
+  const ExamStarryBackground({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final host = ExamBackdropHost.maybeOf(context);
+    if (host == null) return const ColoredBox(color: AppColors.examStarryBg);
 
     return IgnorePointer(
-      child: CustomPaint(
-        painter: _QuizBackgroundPainter(
-          glyphs: _glyphs,
-          tSec: tSec,
-          mobile: mobile,
+      child: CompositedTransformTarget(
+        link: host.layerLink,
+        child: CustomPaint(
+          painter: host.createPainter(),
+          size: Size.infinite,
         ),
-        size: Size.infinite,
       ),
     );
   }
+}
+
+double cssLinearPingPong(double tSec, double durationSec, double delaySec) {
+  var cycle = (tSec - delaySec) / durationSec;
+  cycle -= cycle.floorToDouble();
+  if (cycle < 0) cycle += 1;
+  return cycle <= 0.5 ? cycle * 2.0 : (1.0 - cycle) * 2.0;
 }
 
 enum _GlyphKind { letter, math, chem }
@@ -152,18 +275,19 @@ class _Glyph {
 
 class _QuizBackgroundPainter extends CustomPainter {
   _QuizBackgroundPainter({
-    required this.glyphs,
     required this.tSec,
+    required this.glyphs,
+    required this.painters,
     required this.mobile,
-  });
+  }) : super(repaint: tSec);
 
+  final ValueNotifier<double> tSec;
   final List<_Glyph> glyphs;
-  final double tSec;
+  final List<TextPainter> painters;
   final bool mobile;
 
   @override
   void paint(Canvas canvas, Size size) {
-
     canvas.drawRect(
       Offset.zero & size,
       Paint()..color = AppColors.examStarryBg,
@@ -191,64 +315,49 @@ class _QuizBackgroundPainter extends CustomPainter {
       color: const Color.fromRGBO(220, 135, 0, 0.06),
     );
 
+    final t = tSec.value;
+
     if (!mobile) {
-      _paintDriftBlob(
+      final driftA = cssLinearPingPong(t, 60, 0);
+      canvas.save();
+      canvas.translate(30 * driftA, -15 * driftA);
+      _paintRadial(
         canvas,
         size,
-        tSec: tSec,
-        durationSec: 60,
-        dx: 30,
-        dy: -15,
-        blur: 40,
-        centers: [
-          (
-            Offset(size.width * 0.20, size.height * 0.30),
-            size.shortestSide * 0.9,
-            const Color.fromRGBO(0, 110, 230, 0.05),
-          ),
-          (
-            Offset(size.width * 0.80, size.height * 0.70),
-            size.shortestSide * 0.8,
-            const Color.fromRGBO(120, 70, 220, 0.04),
-          ),
-        ],
+        center: Offset(size.width * 0.20, size.height * 0.30),
+        radius: size.shortestSide * 0.9,
+        color: const Color.fromRGBO(0, 110, 230, 0.05),
       );
-      _paintDriftBlob(
+      _paintRadial(
         canvas,
         size,
-        tSec: tSec,
-        durationSec: 70,
-        dx: -20,
-        dy: 20,
-        blur: 50,
-        centers: [
-          (
-            Offset(size.width * 0.50, size.height * 0.20),
-            size.shortestSide * 0.75,
-            const Color.fromRGBO(220, 135, 0, 0.03),
-          ),
-        ],
+        center: Offset(size.width * 0.80, size.height * 0.70),
+        radius: size.shortestSide * 0.8,
+        color: const Color.fromRGBO(120, 70, 220, 0.04),
       );
+      canvas.restore();
+
+      final driftB = cssLinearPingPong(t, 70, 0);
+      canvas.save();
+      canvas.translate(-20 * driftB, 20 * driftB);
+      _paintRadial(
+        canvas,
+        size,
+        center: Offset(size.width * 0.50, size.height * 0.20),
+        radius: size.shortestSide * 0.75,
+        color: const Color.fromRGBO(220, 135, 0, 0.03),
+      );
+      canvas.restore();
     }
 
-    for (final g in glyphs) {
-      var cycle = (tSec - g.delaySec) / g.durationSec;
-      cycle -= cycle.floorToDouble();
-      final tri = cycle <= 0.5 ? cycle * 2.0 : (1.0 - cycle) * 2.0;
-      final opacity = (g.baseOpacity * (1.0 - 0.5 * tri)).clamp(0.0, 1.0);
-      final dx = g.moveX * tri;
-      final dy = g.moveY * tri;
-      final rot = (g.rotationDeg + g.rotationDeltaDeg * tri) * math.pi / 180;
-
-      final tp = TextPainter(
-        text: TextSpan(text: g.text, style: _style(g, opacity)),
-        textDirection:
-            g.kind == _GlyphKind.letter ? TextDirection.rtl : TextDirection.ltr,
-        maxLines: 1,
-      )..layout();
-
-      final cx = g.left * size.width + dx;
-      final cy = g.top * size.height + dy;
+    for (var i = 0; i < glyphs.length; i++) {
+      final glyph = glyphs[i];
+      final tp = painters[i];
+      final tri = cssLinearPingPong(t, glyph.durationSec, glyph.delaySec);
+      final rot =
+          (glyph.rotationDeg + glyph.rotationDeltaDeg * tri) * math.pi / 180;
+      final cx = glyph.left * size.width + glyph.moveX * tri;
+      final cy = glyph.top * size.height + glyph.moveY * tri;
 
       canvas.save();
       canvas.translate(cx, cy);
@@ -258,84 +367,27 @@ class _QuizBackgroundPainter extends CustomPainter {
     }
   }
 
-  TextStyle _style(_Glyph g, double opacity) {
-    final color = g.color.withValues(alpha: g.color.a * opacity);
-    switch (g.kind) {
-      case _GlyphKind.letter:
-        return TextStyle(
-          fontFamily: AppFonts.bahij,
-          fontSize: g.size,
-          fontWeight: FontWeight.w600,
-          height: 1,
-          color: color,
-        );
-      case _GlyphKind.math:
-        return TextStyle(
-          fontSize: g.size,
-          fontStyle: FontStyle.italic,
-          fontWeight: FontWeight.w500,
-          height: 1,
-          color: color,
-          fontFamilyFallback: const ['Georgia', 'Times New Roman', 'serif'],
-        );
-      case _GlyphKind.chem:
-        return TextStyle(
-          fontSize: g.size,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-          height: 1,
-          color: color,
-          fontFamilyFallback: const ['Courier New', 'monospace'],
-        );
-    }
-  }
-
-  void _paintRadial(
-    Canvas canvas,
-    Size size, {
-    required Offset center,
-    required double radius,
-    required Color color,
-  }) {
-    final paint = Paint()
-      ..shader = ui.Gradient.radial(
-        center,
-        radius,
-        [color, color.withValues(alpha: 0)],
-        const [0.0, 1.0],
-      );
-    canvas.drawRect(Offset.zero & size, paint);
-  }
-
-  void _paintDriftBlob(
-    Canvas canvas,
-    Size size, {
-    required double tSec,
-    required double durationSec,
-    required double dx,
-    required double dy,
-    required double blur,
-    required List<(Offset, double, Color)> centers,
-  }) {
-    var cycle = tSec / durationSec;
-    cycle -= cycle.floorToDouble();
-    final tri = cycle <= 0.5 ? cycle * 2.0 : (1.0 - cycle) * 2.0;
-
-    canvas.saveLayer(
-      Offset.zero & size,
-      Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: blur / 2, sigmaY: blur / 2),
-    );
-    canvas.translate(dx * tri, dy * tri);
-    for (final (center, radius, color) in centers) {
-      _paintRadial(canvas, size, center: center, radius: radius, color: color);
-    }
-    canvas.restore();
-  }
-
   @override
   bool shouldRepaint(covariant _QuizBackgroundPainter oldDelegate) {
-    return oldDelegate.tSec != tSec ||
-        oldDelegate.mobile != mobile ||
-        !identical(oldDelegate.glyphs, glyphs);
+    return oldDelegate.glyphs != glyphs ||
+        oldDelegate.painters != painters ||
+        oldDelegate.mobile != mobile;
   }
+}
+
+void _paintRadial(
+  Canvas canvas,
+  Size size, {
+  required Offset center,
+  required double radius,
+  required Color color,
+}) {
+  final paint = Paint()
+    ..shader = ui.Gradient.radial(
+      center,
+      radius,
+      [color, color.withValues(alpha: 0)],
+      const [0.0, 1.0],
+    );
+  canvas.drawRect(Offset.zero & size, paint);
 }

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/quiz_html_text.dart';
 import '../data/memory_card_palette.dart';
 import '../models/memory_card.dart';
 
@@ -164,9 +165,8 @@ class _CardFace extends StatelessWidget {
         child: Center(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
+            child: _BidiAwareMultilineText(
+              text: text,
               style: TextStyle(
                 color: emptyAnswer
                     ? Colors.white.withValues(alpha: 0.4)
@@ -180,6 +180,46 @@ class _CardFace extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Web flashcards use `dir="auto"` + `whitespace-pre-wrap`. Flutter's single
+/// Text in an RTL app treats the whole block as RTL, so trailing `?` on an
+/// English line jumps to the start. Each line gets its own direction instead.
+class _BidiAwareMultilineText extends StatelessWidget {
+  const _BidiAwareMultilineText({
+    required this.text,
+    required this.style,
+  });
+
+  final String text;
+  final TextStyle style;
+
+  static final _breakTag = RegExp(r'<br\s*/?>', caseSensitive: false);
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = text.replaceAll(_breakTag, '\n').replaceAll('\r\n', '\n');
+    final lines = normalized.split('\n');
+    final lineHeight = (style.fontSize ?? 22) * (style.height ?? 1.45);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final line in lines)
+          if (line.trim().isEmpty)
+            SizedBox(height: lineHeight / 2)
+          else
+            Directionality(
+              textDirection: QuizHtmlText.detectTextDirection(line),
+              child: Text(
+                line,
+                textAlign: TextAlign.center,
+                style: style,
+              ),
+            ),
+      ],
     );
   }
 }

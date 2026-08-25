@@ -66,7 +66,7 @@ class _WebSseService implements SseService {
     source.addEventListener(
       'INVALID_TOKEN',
       ((web.Event _) {
-        unawaited(AuthSession.clear());
+        SseEventHandlers.dispatch('INVALID_TOKEN', '{}');
       }).toJS,
     );
 

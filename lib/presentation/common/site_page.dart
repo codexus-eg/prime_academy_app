@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/constants/contact_content.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/gradient_border.dart';
+import '../home/widgets/app_nav_scaffold.dart';
 
 class SitePageScaffold extends StatelessWidget {
   const SitePageScaffold({
@@ -24,91 +23,21 @@ class SitePageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppNavScaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _SiteHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 24,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxContentWidth),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 24,
         ),
-      ),
-    );
-  }
-}
-
-class _SiteHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.headerBorder, width: 1.1),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(
-          AppSpacing.pageContentHorizontal,
-          AppSpacing.base,
-          AppSpacing.pageContentHorizontal,
-          AppSpacing.base,
-        ),
-        child: Row(
-          children: [
-            Image.asset(
-              'assets/images/logo_prime.webp',
-              width: 120,
-              fit: BoxFit.contain,
-              gaplessPlayback: true,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxContentWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
             ),
-            const Spacer(),
-            Material(
-              color: AppColors.mainBg3,
-              borderRadius: AppRadius.borderTailwindXl,
-              child: InkWell(
-                onTap: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/home');
-                  }
-                },
-                borderRadius: AppRadius.borderTailwindXl,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: AppRadius.borderTailwindXl,
-                    border: Border.all(color: AppColors.overlayWhite6),
-                  ),
-                  alignment: Alignment.center,
-
-                  child: const Icon(
-                    Icons.arrow_forward,
-                    color: AppColors.onDark,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

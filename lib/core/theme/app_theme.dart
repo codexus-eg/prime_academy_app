@@ -30,7 +30,7 @@ abstract final class AppTheme {
   static const Color lightSurface = AppColors.lightSurface;
   static const Color lightFieldFill = AppColors.lightFieldFill;
   static const Color lightMuted = AppColors.lightMuted;
-  static const Color homeTabBarFill = AppColors.mainBg3;
+  static const Color homeTabBarFill = AppColors.mainBg2;
   static const Color homeTabInactive = AppColors.tabInactive;
   static const Color homeHeaderBorder = AppColors.headerBorder;
   static const Color mobileNavBorder = AppColors.mobileNavBorder;

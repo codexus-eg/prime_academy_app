@@ -1,21 +1,15 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../../core/web/web_media.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_fonts.dart';
-import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/buttons/custom_button.dart';
+import 'lesson_aside_title_header.dart';
+import 'lesson_chat_ui.dart';
 import '../../../data/auth/auth_session.dart';
 import '../../../data/courses/user_course.dart';
 import '../../../data/sse/sse_service.dart';
@@ -24,7 +18,6 @@ import '../../../data/upload/upload_api.dart';
 import '../../../data/upload/upload_mime.dart';
 
 const _pageSize = 20;
-const _maxMessageLength = 1000;
 
 class LessonChatPanel extends StatefulWidget {
   const LessonChatPanel({
@@ -60,7 +53,9 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
 
   WebAudioRecorder? _recorder;
   var _recording = false;
+  var _paused = false;
   var _recordSeconds = 0;
+  RecordedAudio? _recordedAudio;
   Timer? _recordTimer;
   Timer? _pollTimer;
   var _optimisticId = -1;
@@ -71,20 +66,24 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     super.initState();
     _init();
     _scrollController.addListener(_onScroll);
-    ChatLiveHub.instance.subscribe(
-      chatId: widget.chatId,
-      onMessage: _onLiveMessage,
-      onEdited: _onLiveEdited,
-      onDeleted: _onLiveDeleted,
-    );
-    _pollTimer = Timer.periodic(const Duration(minutes: 2), (_) {
-      unawaited(_pollLatest());
-    });
+    if (widget.chatId > 0) {
+      ChatLiveHub.instance.subscribe(
+        chatId: widget.chatId,
+        onMessage: _onLiveMessage,
+        onEdited: _onLiveEdited,
+        onDeleted: _onLiveDeleted,
+      );
+      _pollTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+        unawaited(_pollLatest());
+      });
+    }
   }
 
   @override
   void dispose() {
-    ChatLiveHub.instance.unsubscribe(widget.chatId);
+    if (widget.chatId > 0) {
+      ChatLiveHub.instance.unsubscribe(widget.chatId);
+    }
     _pollTimer?.cancel();
     _scrollController.removeListener(_onScroll);
     _recordTimer?.cancel();
@@ -173,6 +172,15 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
   }
 
   Future<void> _loadMessages({required bool reset}) async {
+    if (widget.chatId <= 0) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+        _hasMore = false;
+      });
+      return;
+    }
     if (reset) {
       setState(() {
         _loading = true;
@@ -548,13 +556,25 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     }
 
     _recorder = recorder;
+    _recordedAudio = null;
     setState(() {
       _recording = true;
+      _paused = false;
       _recordSeconds = 0;
     });
     _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _recordSeconds++);
+      if (mounted && !_paused) setState(() => _recordSeconds++);
     });
+  }
+
+  Future<void> _pauseRecording() async {
+    await _recorder?.pause();
+    if (mounted) setState(() => _paused = true);
+  }
+
+  Future<void> _resumeRecording() async {
+    await _recorder?.resume();
+    if (mounted) setState(() => _paused = false);
   }
 
   void _cancelRecording() {
@@ -563,26 +583,51 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     _recorder = null;
     setState(() {
       _recording = false;
+      _paused = false;
       _recordSeconds = 0;
+      _recordedAudio = null;
     });
   }
 
-  Future<void> _stopRecordingAndSend() async {
+  Future<void> _stopRecordingToPreview() async {
     final recorder = _recorder;
     if (recorder == null) return;
     _recordTimer?.cancel();
 
     final recorded = await recorder.stop();
     _recorder = null;
-    setState(() => _recording = false);
+    if (!mounted) return;
+    setState(() {
+      _recording = false;
+      _paused = false;
+      _recordedAudio = recorded;
+    });
+  }
 
-    if (recorded == null) return;
+  Future<void> _toggleRecording() async {
+    if (_recording) {
+      await _stopRecordingToPreview();
+    } else {
+      await _startRecording();
+    }
+  }
 
-    await _uploadAndSend(
-      bytes: recorded.bytes,
-      name: 'recording.${recorded.extension}',
-      mimeType: recorded.mimeType,
-    );
+  Future<void> _sendComposer() async {
+    if (_sending) return;
+    if (_recording) {
+      await _stopRecordingToPreview();
+    }
+    final recorded = _recordedAudio;
+    if (recorded != null) {
+      setState(() => _recordedAudio = null);
+      await _uploadAndSend(
+        bytes: recorded.bytes,
+        name: 'recording.${recorded.extension}',
+        mimeType: recorded.mimeType,
+      );
+      return;
+    }
+    await _sendMessage();
   }
 
   Future<void> _editMessage(ChatMessage message) async {
@@ -591,30 +636,12 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     final controller = TextEditingController(text: message.message);
     final updated = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('تعديل الرسالة'),
-        content: TextField(
-          controller: controller,
-          maxLines: 4,
-          maxLength: _maxMessageLength,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('حفظ'),
-          ),
-        ],
-      ),
+      barrierColor: Colors.black54,
+      builder: (context) => LessonEditMessageDialog(controller: controller),
     );
     controller.dispose();
-    if (updated == null || updated.isEmpty || updated == message.message) {
-      return;
-    }
+    if (updated == null || updated == message.message) return;
+    if (updated.isEmpty && message.media == null) return;
 
     try {
       final saved = await ChatApi.editMessage(
@@ -633,25 +660,6 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
   }
 
   Future<void> _deleteMessage(ChatMessage message) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('حذف الرسالة'),
-        content: const Text('هل أنت متأكد من حذف هذه الرسالة؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
     try {
       await ChatApi.deleteMessage(
         chatId: widget.chatId,
@@ -667,9 +675,9 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     }
   }
 
-  _ChatUserDisplay _displayUserFor(ChatMessage message, bool isMine) {
+  LessonChatUser _displayUserFor(ChatMessage message, bool isMine) {
     if (isMine) {
-      return _ChatUserDisplay(
+      return LessonChatUser(
         name: _currentUser?.name ?? 'أنا',
         imageUrl: null,
         role: _currentUser?.role ?? 1,
@@ -677,7 +685,7 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     }
 
     final teacher = widget.teacher;
-    return _ChatUserDisplay(
+    return LessonChatUser(
       name: teacher?.name ?? 'المعلم',
       imageUrl: teacher?.imageUrl,
       role: 2,
@@ -686,23 +694,30 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppTheme.coursePageBackground,
+    return LessonAsideShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PanelHeader(onClose: widget.onClose),
+          LessonAsideTitleHeader(
+            title: 'اسألني لايف',
+            onClose: widget.onClose,
+          ),
+          const SizedBox(height: AppSpacing.lessonAsideInnerGap),
           Expanded(child: _buildMessages()),
-          _ChatInputBar(
+          const SizedBox(height: AppSpacing.lessonAsideInnerGap),
+          LessonChatInputBar(
             controller: _messageController,
             focusNode: _focusNode,
             sending: _sending,
             recording: _recording,
+            paused: _paused,
+            hasPreview: _recordedAudio != null,
             recordSeconds: _recordSeconds,
-            onSend: () => _sendMessage(),
+            onSend: _sendComposer,
             onAttach: _pickAndUploadFile,
-            onStartRecord: _startRecording,
-            onStopRecord: _stopRecordingAndSend,
+            onToggleRecord: _toggleRecording,
+            onPauseRecord: _pauseRecording,
+            onResumeRecord: _resumeRecording,
             onCancelRecord: _cancelRecording,
           ),
         ],
@@ -712,8 +727,19 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
 
   Widget _buildMessages() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.blue),
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppColors.accentIconMuted,
+            ),
+          ),
+        ),
       );
     }
 
@@ -733,18 +759,27 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
     }
 
     if (_messages.isEmpty) {
-      return Center(
-        child: Text(
-          'يمكنك كتابة سؤالك هنا',
-          style: AppTypography.bodyLg.copyWith(color: AppTheme.muted),
+      return ListView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: 24,
         ),
+        children: [
+          Text(
+            'يمكنك كتابة سؤالك هنا',
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyLg.copyWith(color: AppColors.gray300),
+          ),
+        ],
       );
     }
 
-    return ListView.builder(
+    return ListView.separated(
       controller: _scrollController,
-      padding: const EdgeInsets.all(AppSpacing.base),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       itemCount: _messages.length + (_loadingMore ? 1 : 0),
+      separatorBuilder: (_, _) =>
+          const SizedBox(height: AppSpacing.lessonChatMessageGap),
       itemBuilder: (context, index) {
         if (_loadingMore && index == 0) {
           return const Padding(
@@ -753,7 +788,10 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
               child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.accentIconMuted,
+                ),
               ),
             ),
           );
@@ -763,689 +801,24 @@ class _LessonChatPanelState extends State<LessonChatPanel> {
         final message = _messages[msgIndex];
         final isMine = message.senderId == _currentUser?.id;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.base),
-          child: Align(
-            alignment: isMine
-                ? AlignmentDirectional.centerStart
-                : AlignmentDirectional.centerEnd,
-            child: _ChatBubble(
-              message: message,
-              isMine: isMine,
-              user: _displayUserFor(message, isMine),
-              localAudioBytes: _localAudioBytes[message.id],
-              onEdit: isMine && !message.isAudioMessage && !message.isPending
-                  ? () => _editMessage(message)
-                  : null,
-              onDelete: isMine && !message.isPending
-                  ? () => _deleteMessage(message)
-                  : null,
-            ),
+        return Align(
+          alignment: isMine
+              ? AlignmentDirectional.centerStart
+              : AlignmentDirectional.centerEnd,
+          child: LessonChatBubble(
+            message: message,
+            isMine: isMine,
+            user: _displayUserFor(message, isMine),
+            localAudioBytes: _localAudioBytes[message.id],
+            onEdit: isMine && !message.isAudioMessage && !message.isPending
+                ? () => _editMessage(message)
+                : null,
+            onDelete: isMine && !message.isPending
+                ? () => _deleteMessage(message)
+                : null,
           ),
         );
       },
-    );
-  }
-}
-
-class _ChatUserDisplay {
-  const _ChatUserDisplay({
-    required this.name,
-    required this.role,
-    this.imageUrl,
-  });
-
-  final String name;
-  final String? imageUrl;
-  final int role;
-
-  String get roleLabel => role == 2 ? 'معلم' : 'طالب';
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({this.onClose});
-
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(width: 1.1, color: AppTheme.homeHeaderBorder),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.symmetric(
-          horizontal: AppSpacing.base,
-          vertical: AppSpacing.base,
-        ),
-        child: Row(
-          children: [
-            if (onClose != null)
-              CustomButton.icon(
-                onPressed: onClose,
-                icon: Icons.close,
-                height: 40,
-                width: 40,
-                borderRadius: AppRadius.borderMd,
-                foregroundColor: AppColors.onDark.withValues(alpha: 0.95),
-                variant: CustomButtonVariant.text,
-              ),
-            Expanded(
-              child: Text(
-                'أسألنى لايف',
-                textAlign: TextAlign.center,
-                style: AppTypography.size20.copyWith(
-                  color: AppColors.onDark,
-                  fontWeight: AppFonts.bold,
-                ),
-              ),
-            ),
-            if (onClose != null) const SizedBox(width: AppSpacing.xxxl),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({
-    required this.message,
-    required this.isMine,
-    required this.user,
-    this.localAudioBytes,
-    this.onEdit,
-    this.onDelete,
-  });
-
-  final ChatMessage message;
-  final bool isMine;
-  final _ChatUserDisplay user;
-  final Uint8List? localAudioBytes;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = message.media;
-
-    return Opacity(
-      opacity: message.isPending ? 0.72 : 1,
-      child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 320),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.mainBg3,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.base),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (isMine && (onEdit != null || onDelete != null))
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_horiz,
-                      size: 18,
-                      color: AppColors.tabInactive.withValues(alpha: 0.8),
-                    ),
-                    onSelected: (value) {
-                      if (value == 'edit') onEdit?.call();
-                      if (value == 'delete') onDelete?.call();
-                    },
-                    itemBuilder: (context) => [
-                      if (onEdit != null)
-                        const PopupMenuItem(value: 'edit', child: Text('تعديل')),
-                      if (onDelete != null)
-                        const PopupMenuItem(value: 'delete', child: Text('حذف')),
-                    ],
-                  ),
-                ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ChatAvatar(user: user),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.bodyMd.copyWith(
-                            color: AppColors.onDark,
-                            fontWeight: AppFonts.semibold,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xxs),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.sm,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: user.role == 2
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFF6366F1),
-                                      Color(0xFF8B5CF6),
-                                    ],
-                                  )
-                                : null,
-                            color: user.role == 2 ? null : AppColors.mainBg,
-                            borderRadius: AppRadius.borderSm,
-                          ),
-                          child: Text(
-                            user.roleLabel,
-                            style: AppTypography.bodySm.copyWith(
-                              color: AppColors.onDark,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (message.message.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.mainBg,
-                    borderRadius: AppRadius.borderMd,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.base),
-                    child: Text(
-                      message.message,
-                      style: AppTypography.bodyMd.copyWith(
-                        color: AppColors.onDark,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              if (media != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                if (media.mimeType.startsWith('image/'))
-                  _ChatImageAttachment(url: media.resolvedUrl)
-                else if (media.mimeType.startsWith('video/'))
-                  _ChatVideoAttachment(url: media.resolvedUrl)
-                else if (media.mimeType.startsWith('audio/'))
-                  _ChatAudioAttachment(
-                    url: media.resolvedUrl,
-                    localBytes: localAudioBytes,
-                    isPending: message.isPending,
-                  )
-                else if (media.mimeType == 'application/pdf')
-                  _ChatPdfAttachment(url: media.resolvedUrl)
-              ],
-              if (message.createdAt.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Text(
-                    _formatChatDate(message.createdAt),
-                    style: AppTypography.bodySm.copyWith(
-                      color: AppColors.tabInactive,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    ),
-    );
-  }
-
-  static String _formatChatDate(String raw) {
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) return raw;
-    return DateFormat('dd MMM yyyy, hh:mm a', 'en').format(parsed.toLocal());
-  }
-}
-
-class _ChatAvatar extends StatelessWidget {
-  const _ChatAvatar({required this.user});
-
-  final _ChatUserDisplay user;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = user.imageUrl;
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      return CircleAvatar(
-        radius: 22,
-        backgroundImage: NetworkImage(imageUrl),
-      );
-    }
-
-    return CircleAvatar(
-      radius: 22,
-      backgroundColor: AppColors.mainBg,
-      child: Icon(
-        user.role == 2 ? Icons.school_outlined : Icons.person_outline,
-        color: user.role == 2 ? const Color(0xFFEAB308) : AppColors.onDark,
-      ),
-    );
-  }
-}
-
-class _ChatImageAttachment extends StatelessWidget {
-  const _ChatImageAttachment({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        showDialog<void>(
-          context: context,
-          barrierColor: Colors.black87,
-          builder: (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(AppSpacing.base),
-            child: Stack(
-              children: [
-                InteractiveViewer(
-                  child: Image.network(url, fit: BoxFit.contain),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        child: Image.network(url, fit: BoxFit.cover),
-      ),
-    );
-  }
-}
-
-class _ChatPdfAttachment extends StatelessWidget {
-  const _ChatPdfAttachment({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.mainBg,
-      borderRadius: AppRadius.borderMd,
-      child: InkWell(
-        onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-        borderRadius: AppRadius.borderMd,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.base),
-          child: Row(
-            children: [
-              const Icon(Icons.picture_as_pdf_outlined, color: AppColors.blue),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'فتح في علامة تبويب جديدة',
-                  style: AppTypography.bodySm.copyWith(
-                    color: AppColors.blue,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatVideoAttachment extends StatefulWidget {
-  const _ChatVideoAttachment({required this.url});
-
-  final String url;
-
-  @override
-  State<_ChatVideoAttachment> createState() => _ChatVideoAttachmentState();
-}
-
-class _ChatVideoAttachmentState extends State<_ChatVideoAttachment> {
-  late final VideoPlayerController _controller;
-  var _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        if (mounted) setState(() => _initialized = true);
-      });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_initialized) {
-      return const SizedBox(
-        height: 160,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: AspectRatio(
-        aspectRatio: _controller.value.aspectRatio,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            VideoPlayer(_controller),
-            if (!_controller.value.isPlaying)
-              IconButton(
-                iconSize: 48,
-                color: Colors.white70,
-                onPressed: () => setState(() => _controller.play()),
-                icon: const Icon(Icons.play_circle_outline),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatInputBar extends StatelessWidget {
-  const _ChatInputBar({
-    required this.controller,
-    required this.focusNode,
-    required this.onSend,
-    required this.sending,
-    required this.recording,
-    required this.recordSeconds,
-    this.onAttach,
-    this.onStartRecord,
-    this.onStopRecord,
-    this.onCancelRecord,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final VoidCallback onSend;
-  final VoidCallback? onAttach;
-  final VoidCallback? onStartRecord;
-  final VoidCallback? onStopRecord;
-  final VoidCallback? onCancelRecord;
-  final bool sending;
-  final bool recording;
-  final int recordSeconds;
-
-  String get _timeLabel {
-    final m = (recordSeconds ~/ 60).toString();
-    final s = (recordSeconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
-        AppSpacing.md,
-      ),
-      child: recording ? _buildRecordingRow() : _buildInputRow(),
-    );
-  }
-
-  Widget _buildInputRow() {
-    return Row(
-      children: [
-        if (onAttach != null) ...[
-          CustomButton.icon(
-            onPressed: sending ? null : onAttach,
-            icon: Icons.attach_file_rounded,
-            height: 48,
-            width: 48,
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            variant: CustomButtonVariant.text,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-        ],
-        Expanded(
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            enabled: !sending,
-            maxLength: _maxMessageLength,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => onSend(),
-            decoration: InputDecoration(
-              hintText: 'اكتب سؤالك...',
-              counterText: '',
-              border: OutlineInputBorder(
-                borderRadius: AppRadius.borderMd,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        if (onStartRecord != null) ...[
-          CustomButton.icon(
-            onPressed: sending ? null : onStartRecord,
-            icon: Icons.mic_none_rounded,
-            height: 48,
-            width: 48,
-            borderRadius: BorderRadius.circular(AppRadius.full),
-            variant: CustomButtonVariant.text,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-        ],
-        CustomButton.icon(
-          onPressed: sending ? null : onSend,
-          icon: sending ? Icons.hourglass_top_rounded : Icons.send_rounded,
-          height: 48,
-          width: 48,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecordingRow() {
-    return Row(
-      children: [
-        CustomButton.icon(
-          onPressed: onCancelRecord,
-          icon: Icons.delete_outline_rounded,
-          height: 48,
-          width: 48,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          variant: CustomButtonVariant.text,
-          foregroundColor: const Color(0xFFF87171),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Row(
-            children: [
-              const _RecordingDot(),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                'جارٍ التسجيل  $_timeLabel',
-                style: AppTypography.bodyMd.copyWith(
-                  color: AppColors.onDark,
-                  fontWeight: AppFonts.semibold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        CustomButton.icon(
-          onPressed: sending ? null : onStopRecord,
-          icon: sending ? Icons.hourglass_top_rounded : Icons.send_rounded,
-          height: 48,
-          width: 48,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecordingDot extends StatefulWidget {
-  const _RecordingDot();
-
-  @override
-  State<_RecordingDot> createState() => _RecordingDotState();
-}
-
-class _RecordingDotState extends State<_RecordingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 800),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 1, end: 0.25).animate(_controller),
-      child: Container(
-        width: 10,
-        height: 10,
-        decoration: const BoxDecoration(
-          color: Color(0xFFEF4444),
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatAudioAttachment extends StatefulWidget {
-  const _ChatAudioAttachment({
-    required this.url,
-    this.localBytes,
-    this.isPending = false,
-  });
-
-  final String url;
-  final Uint8List? localBytes;
-  final bool isPending;
-
-  @override
-  State<_ChatAudioAttachment> createState() => _ChatAudioAttachmentState();
-}
-
-class _ChatAudioAttachmentState extends State<_ChatAudioAttachment> {
-  final _player = AudioPlayer();
-  var _playing = false;
-
-  @override
-  void dispose() {
-    unawaited(_player.dispose());
-    super.dispose();
-  }
-
-  Future<void> _toggle() async {
-    if (_playing) {
-      await _player.stop();
-      if (mounted) setState(() => _playing = false);
-      return;
-    }
-
-    setState(() => _playing = true);
-    try {
-      if (widget.localBytes != null) {
-        await _player.play(BytesSource(widget.localBytes!));
-      } else {
-        await _player.play(UrlSource(widget.url));
-      }
-      await _player.onPlayerComplete.first;
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تعذّر تشغيل الصوت')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _playing = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = widget.isPending
-        ? (_playing ? 'إيقاف' : 'جارٍ الإرسال...')
-        : (_playing ? 'إيقاف' : 'تشغيل الصوت');
-
-    return Material(
-      color: AppColors.mainBg,
-      borderRadius: BorderRadius.circular(AppRadius.full),
-      child: InkWell(
-        onTap: widget.isPending && widget.localBytes == null ? null : _toggle,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.base,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.isPending && !_playing)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                Icon(
-                  _playing
-                      ? Icons.stop_circle_outlined
-                      : Icons.play_circle_outline,
-                  color: AppColors.blue,
-                ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                label,
-                style: AppTypography.bodySm.copyWith(color: AppColors.onDark),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

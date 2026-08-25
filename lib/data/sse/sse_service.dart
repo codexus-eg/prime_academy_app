@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../chat/chat_models.dart';
 import 'sse_service_io.dart'
-    if (dart.library.html) 'sse_service_web.dart' as impl;
+    if (dart.library.js_interop) 'sse_service_web.dart' as impl;
 
 class ChatLiveHub extends ChangeNotifier {
   ChatLiveHub._();

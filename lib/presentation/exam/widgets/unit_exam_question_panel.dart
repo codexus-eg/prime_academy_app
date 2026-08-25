@@ -4,11 +4,14 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/quiz_html_text.dart';
+import '../../../data/quizzes/quiz_models.dart';
 import '../../../data/quizzes/unit_quiz_question.dart';
 import '../../classification_quiz/models/classification_question.dart';
 import '../../classification_quiz/widgets/classification_fill_blank_view.dart';
 import '../../classification_quiz/widgets/classification_matching_view.dart';
 import '../models/unit_exam_mapper.dart';
+import 'exam_answer_result_card.dart';
 import 'exam_essay_input.dart';
 import 'exam_mcq_grid_view.dart';
 import 'exam_question_card.dart';
@@ -59,6 +62,9 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
   VoidCallback? _submitHandler;
   var _canSubmit = false;
   var _matchingDragActive = false;
+  bool? _revealedCorrect;
+  List<String> _revealedAnswers = const [];
+  var _revealedFillChars = false;
 
   UnitQuizQuestion get _activeQuestion {
     final q = widget.question;
@@ -73,7 +79,8 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
   double _spacingAfterQuestion(UnitQuizQuestion q) {
     return switch (q) {
       UnitEssayQuestion() => 32,
-      UnitMcqQuestion() => 8,
+      // Clear gap between question card and answer squares (web visual spacing).
+      UnitMcqQuestion() => 24,
       _ => 48,
     };
   }
@@ -95,7 +102,60 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       _submitHandler = null;
       _canSubmit = false;
       _matchingDragActive = false;
+      _clearReveal();
     }
+  }
+
+  void _clearReveal() {
+    _revealedCorrect = null;
+    _revealedAnswers = const [];
+    _revealedFillChars = false;
+  }
+
+  List<String> _plainAnswers(Iterable<dynamic> answers) {
+    return answers
+        .map((a) => QuizHtmlText.plainText((a as QuizMcqAnswer).title).trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+  }
+
+  void _revealEssay(UnitEssayQuestion essay, String text) {
+    final answers = _plainAnswers(essay.correctAnswers);
+    final correct = essay.markAllAnswersCorrect ||
+        answers.any((a) => a.toLowerCase() == text.trim().toLowerCase());
+    setState(() {
+      _revealedCorrect = correct;
+      _revealedAnswers = answers;
+      _revealedFillChars = false;
+    });
+  }
+
+  void _revealFill(UnitFillBlankQuestion fill, bool correct) {
+    setState(() {
+      _revealedCorrect = correct;
+      _revealedAnswers = _plainAnswers(fill.correctAnswers);
+      _revealedFillChars = true;
+    });
+  }
+
+  Widget _headerFor(UnitQuizQuestion question) {
+    final revealed = _revealedCorrect;
+    final showResult = revealed != null &&
+        (question is UnitEssayQuestion || question is UnitFillBlankQuestion);
+    if (showResult) {
+      return ExamAnswerResultCard(
+        key: ValueKey('result-${question.id}-$revealed'),
+        isCorrect: revealed,
+        answers: _revealedAnswers,
+        showAsFillChars: _revealedFillChars,
+      );
+    }
+    return ExamQuestionCard(
+      key: ValueKey('prompt-${question.id}'),
+      prompt: question.title,
+      visible: true,
+      progressPercentage: widget.progressPercent,
+    );
   }
 
   void _registerSubmitHandler(VoidCallback handler) {
@@ -149,11 +209,7 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
                           : const ClampingScrollPhysics(),
                       child: Column(
                         children: [
-                          ExamQuestionCard(
-                            prompt: child.title,
-                            visible: true,
-                            progressPercentage: widget.progressPercent,
-                          ),
+                          _headerFor(child),
                           SizedBox(height: _spacingAfterQuestion(child)),
                           _buildQuestionBody(
                             child,
@@ -192,11 +248,7 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
                   : const ClampingScrollPhysics(),
               child: Column(
                 children: [
-                  ExamQuestionCard(
-                    prompt: active.title,
-                    visible: true,
-                    progressPercentage: widget.progressPercent,
-                  ),
+                  _headerFor(active),
                   SizedBox(height: _spacingAfterQuestion(active)),
                   _buildQuestionBody(active),
                 ],
@@ -247,13 +299,18 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       UnitEssayQuestion essay => _EssayView(
           key: ValueKey(essay.id),
           questionTitle: essay.title,
+          isSubmitted: _revealedCorrect != null,
+          isCorrect: _revealedCorrect,
           onSubmitReady: _registerSubmitHandler,
           onAnswerChange: _updateCanSubmit,
-          onSubmit: (text) => submit(
-                questionId: essay.id,
-                type: 'essay',
-                answers: [text],
-              ),
+          onSubmit: (text) {
+            _revealEssay(essay, text);
+            submit(
+              questionId: essay.id,
+              type: 'essay',
+              answers: [text],
+            );
+          },
         ),
       UnitFillBlankQuestion fill => _buildFillBlank(fill, submit: submit),
       UnitMatchingQuestion match => _buildMatching(match, submit: submit),
@@ -329,6 +386,7 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       isSubmitted: widget.mcqSubmitted,
       ready: widget.questionReady,
       onSelect: onSelect,
+      expandSquares: passageMarkChild != null,
     );
   }
 
@@ -352,7 +410,7 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       examStyle: true,
       onSubmitReady: _registerSubmitHandler,
       onAnswerChange: _updateCanSubmit,
-      onCorrectChange: (_) {},
+      onCorrectChange: (correct) => _revealFill(fill, correct),
       onAnswered: (text) => submit(
         questionId: fill.id,
         type: 'fill-blank',
@@ -401,12 +459,16 @@ class _EssayView extends StatefulWidget {
     required this.onSubmitReady,
     required this.onAnswerChange,
     required this.onSubmit,
+    this.isSubmitted = false,
+    this.isCorrect,
   });
 
   final String questionTitle;
   final ValueChanged<VoidCallback> onSubmitReady;
   final ValueChanged<bool> onAnswerChange;
   final ValueChanged<String> onSubmit;
+  final bool isSubmitted;
+  final bool? isCorrect;
 
   @override
   State<_EssayView> createState() => _EssayViewState();
@@ -439,6 +501,8 @@ class _EssayViewState extends State<_EssayView> {
       questionTitle: widget.questionTitle,
       controller: _controller,
       onAnswerChange: widget.onAnswerChange,
+      isSubmitted: widget.isSubmitted,
+      isCorrect: widget.isCorrect,
     );
   }
 }

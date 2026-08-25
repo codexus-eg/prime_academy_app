@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -132,7 +133,8 @@ class _LuckKnowledgeFillViewState extends State<LuckKnowledgeFillView> {
         widget.isCorrect == false &&
         studentAnswer.toLowerCase() != plainCorrect.toLowerCase();
 
-    final boxSize = MediaQuery.sizeOf(context).width >= 640 ? 48.0 : 40.0;
+    // Web: `w-10 h-10 lg:w-12 lg:h-12` (lg = 1024px).
+    final boxSize = MediaQuery.sizeOf(context).width >= 1024 ? 48.0 : 40.0;
 
     return Directionality(
       textDirection: TextDirection.ltr,
@@ -171,32 +173,36 @@ class _LuckKnowledgeFillViewState extends State<LuckKnowledgeFillView> {
             const SizedBox(height: AppSpacing.lg),
           ],
           Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(AppRadius.xl),
+              borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
               border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             ),
             child: Wrap(
               alignment: WrapAlignment.center,
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 for (var i = 0; i < _chars.length; i++)
                   if (_chars[i] == ' ')
                     SizedBox(
                       width: boxSize,
                       height: boxSize,
-                      child: Icon(
-                        Icons.more_horiz_rounded,
-                        color: Colors.white.withValues(alpha: 0.2),
-                        size: 28,
+                      child: Center(
+                        child: Container(
+                          width: boxSize * 0.55,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       ),
                     )
                   else
                     _CharBox(
                       size: boxSize,
-                      value: _values[i],
                       state: _charState(i),
                       controller: _controllers[i],
                       focusNode: _focusNodes[i],
@@ -215,7 +221,6 @@ class _LuckKnowledgeFillViewState extends State<LuckKnowledgeFillView> {
 class _CharBox extends StatelessWidget {
   const _CharBox({
     required this.size,
-    required this.value,
     required this.state,
     required this.controller,
     required this.focusNode,
@@ -224,7 +229,6 @@ class _CharBox extends StatelessWidget {
   });
 
   final double size;
-  final String value;
   final String state;
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -233,69 +237,92 @@ class _CharBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = switch (state) {
-      'correct' => (
-          const Color(0x66166534),
-          const Color(0xFF22C55E),
-          const Color(0xFF4ADE80),
-        ),
-      'wrong' => (
-          const Color(0x667F1D1D),
-          const Color(0xFFEF4444),
-          const Color(0xFFF87171),
-        ),
-      'filled' => (
-          const Color(0x333B82F6),
-          const Color(0xFF60A5FA),
-          Colors.white,
-        ),
-      _ => (
-          Colors.white.withValues(alpha: 0.05),
-          Colors.white.withValues(alpha: 0.2),
-          Colors.white,
-        ),
-    };
+    // Web: rounded-lg (8px), border-2, text-xl font-bold.
+    // empty: bg-white/5 border-white/20 focus:border-white/50
+    // filled: bg-accent-bg-500/20 border-accent-bg-400
+    // correct/wrong: green / red as on the web fill question.
+    return ListenableBuilder(
+      listenable: focusNode,
+      builder: (context, _) {
+        final focused = focusNode.hasFocus;
+        final Color fill;
+        final Color border;
+        final Color text;
+        switch (state) {
+          case 'correct':
+            fill = const Color(0x66166534);
+            border = const Color(0xFF22C55E);
+            text = const Color(0xFF4ADE80);
+          case 'wrong':
+            fill = const Color(0x667F1D1D);
+            border = const Color(0xFFEF4444);
+            text = const Color(0xFFF87171);
+          case 'filled':
+            fill = AppColors.blue.withValues(alpha: 0.2);
+            border = const Color(0xFF60A5FA);
+            text = Colors.white;
+          default:
+            fill = Colors.white.withValues(alpha: 0.05);
+            border = Colors.white.withValues(alpha: focused ? 0.5 : 0.2);
+            text = Colors.white;
+        }
 
-    return SizedBox(
-      width: size,
-      height: size,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        enabled: enabled,
-        textAlign: TextAlign.center,
-        maxLength: 1,
-        style: TextStyle(
-          color: colors.$3,
-          fontSize: size * 0.45,
-          fontWeight: FontWeight.bold,
-        ),
-        inputFormatters: [FilteringTextInputFormatter.singleLineFormatter],
-        decoration: InputDecoration(
-          counterText: '',
-          filled: true,
-          fillColor: colors.$1,
-          contentPadding: EdgeInsets.zero,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: BorderSide(color: colors.$2, width: 2),
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(AppRadius.shadcnLg),
+            border: Border.all(color: border, width: 2),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: BorderSide(color: colors.$2, width: 2),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            borderSide: BorderSide(
-              color: state == 'empty'
-                  ? Colors.white.withValues(alpha: 0.5)
-                  : colors.$2,
-              width: 2,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              inputDecorationTheme: const InputDecorationTheme(
+                filled: false,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                counterStyle: TextStyle(fontSize: 0, height: 0),
+              ),
+            ),
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: enabled,
+              textAlign: TextAlign.center,
+              textAlignVertical: TextAlignVertical.center,
+              maxLength: 1,
+              cursorColor: Colors.white,
+              cursorWidth: 1.5,
+              style: TextStyle(
+                color: text,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                height: 1,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.singleLineFormatter,
+              ],
+              decoration: const InputDecoration(
+                counterText: '',
+                isDense: true,
+                filled: false,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+              ),
+              onChanged: onChanged,
             ),
           ),
-        ),
-        onChanged: onChanged,
-      ),
+        );
+      },
     );
   }
 }

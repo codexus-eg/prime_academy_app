@@ -1,6 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_shadows.dart';
@@ -13,6 +13,7 @@ import '../../../data/notifications/notification_store.dart';
 import '../../../data/notifications/notifications_api.dart';
 import 'notification_icons.dart';
 import 'notification_link.dart';
+import 'notification_navigator.dart';
 
 class NotificationDropdown extends StatefulWidget {
   const NotificationDropdown({super.key});
@@ -23,8 +24,9 @@ class NotificationDropdown extends StatefulWidget {
   State<NotificationDropdown> createState() => _NotificationDropdownState();
 }
 
-class _NotificationDropdownState extends State<NotificationDropdown> {
-  final _store = NotificationStore();
+class _NotificationDropdownState extends State<NotificationDropdown>
+    with WidgetsBindingObserver {
+  final _store = NotificationStore.instance;
   final _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
 
@@ -36,13 +38,30 @@ class _NotificationDropdownState extends State<NotificationDropdown> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _store.addListener(_onStoreChanged);
     _bootstrap();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _store.removeListener(_onStoreChanged);
     _removeOverlay();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _enabled) {
+      unawaited(_fetchNotifications());
+    }
+  }
+
+  void _onStoreChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _overlayEntry?.markNeedsBuild();
   }
 
   Future<void> _bootstrap() async {
@@ -109,8 +128,7 @@ class _NotificationDropdownState extends State<NotificationDropdown> {
           loading: _loading,
           visibleCount: _visibleCount,
           onMarkRead: _markAsRead,
-          onGroupTap: _handleGroupTap,
-          onItemTap: _handleItemTap,
+          onOpenItem: _openItem,
           onLoadMore: () {
             setState(() {
               _visibleCount += NotificationDropdown.pageSize;
@@ -146,14 +164,25 @@ class _NotificationDropdownState extends State<NotificationDropdown> {
   ) async {
     final unreadIds = _store.getUnreadGroupNotificationIds(groupType, groupId);
     if (unreadIds.isNotEmpty) await _markAsRead(unreadIds);
-    _close();
   }
 
   Future<void> _handleItemTap(AppNotification notification) async {
     if (!notification.isRead) {
       await _markAsRead([notification.id]);
     }
+  }
+
+  Future<void> _openItem(NotificationListItem item) async {
+    final target = NotificationLink.forItem(item);
+    switch (item) {
+      case GroupNotificationItem(:final group):
+        await _handleGroupTap(group.groupType, group.groupId);
+      case IndividualNotificationItem(:final notification):
+        await _handleItemTap(notification);
+    }
+    if (!mounted) return;
     _close();
+    await NotificationNavigator.open(context, target);
   }
 
   @override
@@ -166,7 +195,7 @@ class _NotificationDropdownState extends State<NotificationDropdown> {
       link: _layerLink,
       child: NotificationBellButton(
         onTap: _toggle,
-        showDot: _store.newNotification,
+        showDot: _store.hasUnread,
       ),
     );
   }
@@ -214,8 +243,7 @@ class _NotificationPanel extends StatefulWidget {
     required this.loading,
     required this.visibleCount,
     required this.onMarkRead,
-    required this.onGroupTap,
-    required this.onItemTap,
+    required this.onOpenItem,
     required this.onLoadMore,
   });
 
@@ -223,9 +251,7 @@ class _NotificationPanel extends StatefulWidget {
   final bool loading;
   final int visibleCount;
   final Future<void> Function(List<int> ids) onMarkRead;
-  final Future<void> Function(NotificationType groupType, int groupId)
-      onGroupTap;
-  final Future<void> Function(AppNotification notification) onItemTap;
+  final Future<void> Function(NotificationListItem item) onOpenItem;
   final VoidCallback onLoadMore;
 
   @override
@@ -329,9 +355,7 @@ class _NotificationPanelState extends State<_NotificationPanel> {
                       if (i > 0) const SizedBox(height: AppSpacing.sm),
                       _NotificationTile(
                         item: visible[i],
-                        store: widget.store,
-                        onGroupTap: widget.onGroupTap,
-                        onItemTap: widget.onItemTap,
+                        onOpen: widget.onOpenItem,
                       ),
                     ],
                     if (hasMore)
@@ -369,22 +393,16 @@ class _NotificationPanelState extends State<_NotificationPanel> {
 class _NotificationTile extends StatelessWidget {
   const _NotificationTile({
     required this.item,
-    required this.store,
-    required this.onGroupTap,
-    required this.onItemTap,
+    required this.onOpen,
   });
 
   final NotificationListItem item;
-  final NotificationStore store;
-  final Future<void> Function(NotificationType groupType, int groupId)
-      onGroupTap;
-  final Future<void> Function(AppNotification notification) onItemTap;
+  final Future<void> Function(NotificationListItem item) onOpen;
 
   @override
   Widget build(BuildContext context) {
     return switch (item) {
       GroupNotificationItem(:final group) => _buildTile(
-          context: context,
           isUnread: group.unreadCount > 0,
           isMasteryCard: false,
           isGroup: true,
@@ -394,14 +412,9 @@ class _NotificationTile extends StatelessWidget {
               ? '${group.unreadCount} غير مقروءة'
               : null,
           subtitleIsAccent: true,
-          onTap: () async {
-            await onGroupTap(group.groupType, group.groupId);
-            if (!context.mounted) return;
-            _navigate(context, NotificationLink.forItem(item));
-          },
+          onTap: () => onOpen(item),
         ),
       IndividualNotificationItem(:final notification) => _buildTile(
-          context: context,
           isUnread: !notification.isRead,
           isMasteryCard:
               notification.type == NotificationType.newKnowledgeQuizPoints,
@@ -414,17 +427,12 @@ class _NotificationTile extends StatelessWidget {
               notification.data.title,
           subtitle: notification.data.title,
           subtitleIsAccent: false,
-          onTap: () async {
-            await onItemTap(notification);
-            if (!context.mounted) return;
-            _navigate(context, NotificationLink.forItem(item));
-          },
+          onTap: () => onOpen(item),
         ),
     };
   }
 
   Widget _buildTile({
-    required BuildContext context,
     required bool isUnread,
     required bool isMasteryCard,
     required bool isGroup,
@@ -501,20 +509,5 @@ class _NotificationTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _navigate(
-    BuildContext context,
-    NotificationNavigationTarget target,
-  ) async {
-    if (target.isExternal) {
-      final uri = Uri.tryParse(target.externalUrl!);
-      if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      return;
-    }
-
-    context.go(target.location);
   }
 }

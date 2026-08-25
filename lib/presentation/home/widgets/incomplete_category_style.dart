@@ -39,7 +39,10 @@ class IncompleteCategoryStyle {
   static IncompleteCategoryStyle forCategory(IncompleteTaskCategory category) {
     return switch (category) {
       IncompleteTaskCategory.exams => const IncompleteCategoryStyle(
+          // Web: from-accent-gradient-from-500/10 to-blue-600/5
           chipActiveGradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [AppColors.accentGradientFrom10, Color(0x0D2563EB)],
           ),
           accentText: AppColors.accentIconMuted400,
@@ -48,7 +51,10 @@ class IncompleteCategoryStyle {
           iconAsset: 'assets/icons/incomplete/exam_fill.svg',
         ),
       IncompleteTaskCategory.lessons => const IncompleteCategoryStyle(
+          // Web: from-red-500/10 to-red-600/5
           chipActiveGradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [Color(0x1AEF4444), Color(0x0DDC2626)],
           ),
           accentText: Color(0xFFF87171),
@@ -57,7 +63,10 @@ class IncompleteCategoryStyle {
           iconAsset: 'assets/icons/incomplete/youtube.svg',
         ),
       IncompleteTaskCategory.categories => const IncompleteCategoryStyle(
+          // Web: from-yellow-500/10 to-yellow-600/5
           chipActiveGradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [Color(0x1AEAB308), Color(0x0DCA8A04)],
           ),
           accentText: AppColors.rankGold,
@@ -66,7 +75,10 @@ class IncompleteCategoryStyle {
           iconAsset: 'assets/icons/lesson/ranking_star.svg',
         ),
       IncompleteTaskCategory.luckCards => const IncompleteCategoryStyle(
+          // Web: from-purple-500/10 to-purple-600/5
           chipActiveGradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [Color(0x1AA855F7), Color(0x0D9333EA)],
           ),
           accentText: AppColors.reportPurple400,
@@ -75,7 +87,10 @@ class IncompleteCategoryStyle {
           iconAsset: 'assets/icons/incomplete/mystery_card.svg',
         ),
       IncompleteTaskCategory.memoryCards => const IncompleteCategoryStyle(
+          // Web: from-green-500/10 to-green-600/5
           chipActiveGradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
             colors: [Color(0x1A22C55E), Color(0x0D16A34A)],
           ),
           accentText: AppColors.reportGreen400,

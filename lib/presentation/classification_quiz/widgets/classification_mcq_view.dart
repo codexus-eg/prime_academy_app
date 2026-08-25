@@ -130,7 +130,7 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
         crossAxisCount: 2,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: 0.85,
+        childAspectRatio: 1,
       ),
       itemBuilder: (context, index) => _buildImageAnswer(index),
       ),
@@ -200,9 +200,6 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
         widget.isSubmitted && state == ClassificationMcqCardState.idle;
     final colors = ClassificationMcqCardColors.resolve(state, theme);
     final hasTitle = answer.title.trim().isNotEmpty;
-    final isWide = MediaQuery.sizeOf(context).width >= 768;
-
-    final cardHeight = isWide ? 240.0 : 100.0;
 
     final overlay = switch (state) {
       ClassificationMcqCardState.correct => const Color(0x2610B981),
@@ -215,9 +212,7 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
       opacity: disabled ? 0.5 : 1,
       child: GestureDetector(
         onTap: (!_ready || disabled) ? null : () => widget.onSelect(answer.id),
-        child: SizedBox(
-          height: cardHeight,
-          width: double.infinity,
+        child: SizedBox.expand(
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),

@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/quizzes/student_quiz_attempt_models.dart';
@@ -16,6 +15,7 @@ import '../widgets/report_summary_card.dart';
 import '../widgets/reports_empty_state.dart';
 import '../widgets/reports_results_count.dart';
 import '../widgets/reports_section_header.dart';
+import '../../common/anchored_select_menu.dart';
 
 class HomeReportsTab extends StatefulWidget {
   const HomeReportsTab({super.key});
@@ -126,10 +126,6 @@ class _HomeReportsTabState extends State<HomeReportsTab> {
         ? AppSpacing.profileFilterModuleWidth
         : double.infinity;
 
-    if (scope == null || scope.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.blue));
-    }
-
     if (courses.isEmpty) {
       return Padding(
         padding: AppSpacing.profileTabContentPadding,
@@ -169,7 +165,8 @@ class _HomeReportsTabState extends State<HomeReportsTab> {
                   ReportFilterDropdown(
                     label: selectedCourse.title,
                     width: courseFilterWidth,
-                    onTap: () => _pickOption(
+                    onTap: (trigger) => _pickOption(
+                      triggerContext: trigger,
                       options: courses.map((c) => c.title).toList(),
                       current: selectedCourse.title,
                       onSelected: (title) {
@@ -184,7 +181,8 @@ class _HomeReportsTabState extends State<HomeReportsTab> {
                       label: _selectedModule,
                       width: moduleFilterWidth,
                       showFilterIcon: true,
-                      onTap: () => _pickOption(
+                      onTap: (trigger) => _pickOption(
+                        triggerContext: trigger,
                         options: [_allModules, ..._moduleNames],
                         current: _selectedModule,
                         onSelected: (v) => setState(() => _selectedModule = v),
@@ -198,90 +196,54 @@ class _HomeReportsTabState extends State<HomeReportsTab> {
             ],
           ),
         ),
-        Expanded(child: _buildBody(context, attempts)),
+        _buildBody(context, attempts),
       ],
     );
   }
 
   Widget _buildBody(BuildContext context, List<ReportAttempt> attempts) {
-    if (_loading) {
-      return const Center(
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            color: AppColors.blue,
-          ),
+    if (_loading && _attempts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_hasError) {
+      return Padding(
+        padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
+        child: Column(
+          children: [
+            const ReportsErrorState(),
+            TextButton(
+              onPressed: _loadAttempts,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
         ),
       );
     }
 
-    if (_hasError) {
-      return ListView(
-        padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
-        children: [
-          const ReportsErrorState(),
-          TextButton(onPressed: _loadAttempts, child: const Text('إعادة المحاولة')),
-        ],
-      );
-    }
-
     if (attempts.isEmpty) {
-      return ListView(
+      return Padding(
         padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
-        children: [
-          ReportsEmptyState(
-            title: _selectedModule == _allModules
-                ? 'لا توجد تقارير حتى الآن'
-                : 'لا توجد تقارير لهذه الوحدة',
-            subtitle: 'قم بإجراء بعض الاختبارات لتظهر تقاريرك هنا',
-          ),
-        ],
+        child: ReportsEmptyState(
+          title: _selectedModule == _allModules
+              ? 'لا توجد تقارير حتى الآن'
+              : 'لا توجد تقارير لهذه الوحدة',
+          subtitle: 'قم بإجراء بعض الاختبارات لتظهر تقاريرك هنا',
+        ),
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= 1024
-            ? 3
-            : constraints.maxWidth >= 768
-                ? 2
-                : 1;
+    return Padding(
+      padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final crossAxisCount = constraints.maxWidth >= 1024
+              ? 3
+              : constraints.maxWidth >= 768
+                  ? 2
+                  : 1;
 
-        if (crossAxisCount == 1) {
-          return ListView.separated(
-            padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
-            itemCount: attempts.length,
-            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.lg),
-            itemBuilder: (context, index) {
-              final attempt = attempts[index];
-              return ReportSummaryCard(
-                attempt: attempt,
-                isFirst: index == 0,
-                onStudentReportTap: () {
-                  context.push(
-                    StudentQuizReviewPage.pathFor(
-                      quizId: attempt.quizId,
-                      attemptId: attempt.attemptId,
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        }
-
-        return GridView.builder(
-          padding: AppSpacing.profileTabContentPadding.copyWith(top: 0),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            mainAxisSpacing: AppSpacing.lg,
-            crossAxisSpacing: AppSpacing.lg,
-            mainAxisExtent: 380,
-          ),
-          itemCount: attempts.length,
-          itemBuilder: (context, index) {
+          Widget card(int index) {
             final attempt = attempts[index];
             return ReportSummaryCard(
               attempt: attempt,
@@ -295,68 +257,55 @@ class _HomeReportsTabState extends State<HomeReportsTab> {
                 );
               },
             );
-          },
-        );
-      },
+          }
+
+          if (crossAxisCount == 1) {
+            return Column(
+              children: [
+                for (var i = 0; i < attempts.length; i++) ...[
+                  if (i > 0) const SizedBox(height: AppSpacing.lg),
+                  card(i),
+                ],
+              ],
+            );
+          }
+
+          const gap = AppSpacing.lg;
+          final itemWidth =
+              (constraints.maxWidth - gap * (crossAxisCount - 1)) /
+                  crossAxisCount;
+
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (var i = 0; i < attempts.length; i++)
+                SizedBox(
+                  width: itemWidth,
+                  height: 380,
+                  child: card(i),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 
   Future<void> _pickOption({
+    required BuildContext triggerContext,
     required List<String> options,
     required String current,
     required ValueChanged<String> onSelected,
   }) async {
-    final chosen = await showModalBottomSheet<String>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: AppColors.mainBg2,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.answerButton),
-        ),
-      ),
-      builder: (sheetContext) {
-        final viewPadding = MediaQuery.viewPaddingOf(sheetContext);
-        final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.55;
-        const rowHeight = 56.0;
-        final contentHeight = options.length * rowHeight + viewPadding.bottom;
-        final sheetHeight = contentHeight.clamp(0.0, maxHeight);
-
-        return SafeArea(
-          top: false,
-          child: SizedBox(
-            height: sheetHeight,
-            child: ListView.separated(
-              padding: EdgeInsets.only(bottom: viewPadding.bottom),
-              itemCount: options.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                color: AppColors.overlayWhite6,
-              ),
-              itemBuilder: (context, index) {
-                final option = options[index];
-                final isSelected = option == current;
-                return ListTile(
-                  title: Text(
-                    option,
-                    textAlign: TextAlign.start,
-                    style: AppTypography.filterLabel.copyWith(
-                      color: AppColors.onDark,
-                    ),
-                  ),
-                  trailing: isSelected
-                      ? const Icon(Icons.check, color: AppColors.onDark)
-                      : null,
-                  onTap: () => Navigator.pop(sheetContext, option),
-                );
-              },
-            ),
-          ),
-        );
-      },
+    final chosen = await showAnchoredSelectMenu<String>(
+      triggerContext: triggerContext,
+      selected: current,
+      options: [
+        for (final option in options)
+          AnchoredSelectOption(value: option, label: option),
+      ],
     );
-
     if (chosen != null) {
       onSelected(chosen);
     }

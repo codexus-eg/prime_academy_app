@@ -1,13 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_avif/flutter_avif.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../core/config/cdn_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/web/web_media.dart';
+import '../../../core/widgets/quiz_answer_image.dart';
 import '../../../data/upload/upload_api.dart';
 import '../../../data/upload/upload_mime.dart';
 import '../../../data/users/users_api.dart';
@@ -24,7 +26,8 @@ class ProfileAvatarUploader extends StatefulWidget {
   final double size;
   final Future<void> Function()? onUploaded;
 
-  static const defaultAsset = 'assets/images/avatar_user.png';
+  /// Web `PiStudentFill` used when the student has no uploaded photo.
+  static const defaultAsset = 'assets/icons/profile/student_fill.svg';
 
   @override
   State<ProfileAvatarUploader> createState() => _ProfileAvatarUploaderState();
@@ -34,11 +37,6 @@ class _ProfileAvatarUploaderState extends State<ProfileAvatarUploader> {
   var _uploading = false;
   var _hovering = false;
   var _imageVersion = 0;
-
-  bool get _isMobile =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<void> _pickAndUpload() async {
     if (_uploading) return;
@@ -117,7 +115,6 @@ class _ProfileAvatarUploaderState extends State<ProfileAvatarUploader> {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedAvatar = CdnConfig.mediaUrl(widget.avatarUrl);
     final innerSize = widget.size - (AppSpacing.xs * 2);
 
     return MouseRegion(
@@ -146,7 +143,7 @@ class _ProfileAvatarUploaderState extends State<ProfileAvatarUploader> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    _buildAvatar(resolvedAvatar, innerSize),
+                    _buildAvatar(innerSize),
                     _buildOverlay(),
                   ],
                 ),
@@ -158,35 +155,37 @@ class _ProfileAvatarUploaderState extends State<ProfileAvatarUploader> {
     );
   }
 
-  Widget _buildAvatar(String resolvedAvatar, double innerSize) {
-    if (resolvedAvatar.isNotEmpty) {
-      return Image.network(
-        resolvedAvatar,
-        key: ValueKey('$resolvedAvatar-$_imageVersion'),
-        fit: BoxFit.cover,
-        width: innerSize,
-        height: innerSize,
-        errorBuilder: (_, _, _) => _defaultAvatar(),
-      );
-    }
-    return _defaultAvatar();
+  Widget _buildAvatar(double innerSize) {
+    final candidates = QuizAnswerImage.resolveCandidateUrls(widget.avatarUrl);
+    if (candidates.isEmpty) return _defaultAvatar();
+
+    return _AvatarNetworkImage(
+      key: ValueKey('${widget.avatarUrl}-$_imageVersion'),
+      urls: candidates,
+      size: innerSize,
+      fallback: _defaultAvatar(),
+    );
   }
 
   Widget _defaultAvatar() {
-    return Image.asset(
-      ProfileAvatarUploader.defaultAsset,
-      fit: BoxFit.cover,
+    return ColoredBox(
+      color: AppColors.mainBg2,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.base),
+        child: SvgPicture.asset(
+          ProfileAvatarUploader.defaultAsset,
+          fit: BoxFit.contain,
+          colorFilter: const ColorFilter.mode(
+            AppColors.courseTitleGradientStart,
+            BlendMode.srcIn,
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildOverlay() {
-    final overlayOpacity = _uploading
-        ? 1.0
-        : _hovering
-            ? 1.0
-            : _isMobile
-                ? 0.35
-                : 0.0;
+    final overlayOpacity = _uploading || _hovering ? 1.0 : 0.0;
 
     return AnimatedOpacity(
       opacity: overlayOpacity,
@@ -212,6 +211,81 @@ class _ProfileAvatarUploaderState extends State<ProfileAvatarUploader> {
                 ),
         ),
       ),
+    );
+  }
+}
+
+class _AvatarNetworkImage extends StatefulWidget {
+  const _AvatarNetworkImage({
+    super.key,
+    required this.urls,
+    required this.size,
+    required this.fallback,
+  });
+
+  final List<String> urls;
+  final double size;
+  final Widget fallback;
+
+  @override
+  State<_AvatarNetworkImage> createState() => _AvatarNetworkImageState();
+}
+
+class _AvatarNetworkImageState extends State<_AvatarNetworkImage> {
+  var _index = 0;
+
+  @override
+  void didUpdateWidget(covariant _AvatarNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.urls, widget.urls)) {
+      _index = 0;
+    }
+  }
+
+  void _tryNext() {
+    if (_index >= widget.urls.length - 1) return;
+    setState(() => _index++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = widget.urls[_index.clamp(0, widget.urls.length - 1)];
+
+    void onError() {
+      if (_index < widget.urls.length - 1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _tryNext();
+        });
+      }
+    }
+
+    if (url.toLowerCase().contains('.avif')) {
+      return AvifImage.network(
+        url,
+        width: widget.size,
+        height: widget.size,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) {
+          onError();
+          if (_index >= widget.urls.length - 1) return widget.fallback;
+          return const SizedBox.shrink();
+        },
+      );
+    }
+
+    return Image.network(
+      url,
+      width: widget.size,
+      height: widget.size,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.high,
+      errorBuilder: (_, _, _) {
+        onError();
+        if (_index >= widget.urls.length - 1) return widget.fallback;
+        return const SizedBox.shrink();
+      },
     );
   }
 }

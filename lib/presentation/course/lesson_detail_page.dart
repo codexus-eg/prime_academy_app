@@ -15,7 +15,7 @@ import '../../data/courses/courses_api.dart';
 import '../../data/courses/module_material.dart';
 import '../../data/courses/user_course.dart';
 import '../../data/sse/video_session_guard.dart';
-import '../home/widgets/home_top_bar.dart';
+import '../home/widgets/app_nav_scaffold.dart';
 import '../session/session_blocked_page.dart';
 import '../classification_quiz/classification_quiz_page.dart';
 import '../luck_cards/luck_cards_page.dart';
@@ -118,10 +118,12 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     if (oldWidget.lessonId != widget.lessonId ||
         oldWidget.unitId != widget.unitId ||
         oldWidget.courseId != widget.courseId) {
-
+      final tab = LessonAsideTab.fromQuery(
+        GoRouterState.of(context).uri.queryParameters['active_tab'],
+      );
       setState(() {
         _liveProgressPercent = null;
-        _asideTab = LessonAsideTab.videos;
+        _asideTab = tab ?? LessonAsideTab.videos;
         _future = _load();
       });
       _scrollToTopOnLessonChange();
@@ -213,6 +215,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       classificationQuizId: playback?.classificationQuizId,
       knowledgeQuizId: playback?.knowledgeQuizId,
       chatId: playback?.chatId,
+      showTeacherChat: user?.role != 0 &&
+          module.isEnrolled &&
+          (module.teacher?.id ?? 0) > 0,
       classificationQuizCompleted:
           playback?.classificationQuizStatus?.completed ?? false,
       classificationLevelTitle:
@@ -282,6 +287,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           classificationQuizId: cached.classificationQuizId,
           knowledgeQuizId: cached.knowledgeQuizId,
           chatId: cached.chatId,
+          showTeacherChat: cached.showTeacherChat,
           classificationQuizCompleted: cached.classificationQuizCompleted,
           classificationLevelTitle: cached.classificationLevelTitle,
           knowledgeQuizCompleted: cached.knowledgeQuizCompleted,
@@ -299,33 +305,12 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   ) {
     return [
       for (final lesson in lessons)
-        lesson.id == itemId
-            ? CourseLesson(
-                id: lesson.id,
-                title: lesson.title,
-                status: lesson.status,
-                videoUrl: lesson.videoUrl,
-                progressPercent: lesson.progressPercent,
-                duration: lesson.duration,
-                isChallenge: lesson.isChallenge,
-                hasTrophy: true,
-                isExternal: lesson.isExternal,
-                externalUrl: lesson.externalUrl,
-                locked: lesson.locked,
-              )
-            : lesson,
+        lesson.id == itemId ? lesson.copyWith(hasTrophy: true) : lesson,
     ];
   }
 
   void _onVideoProgress(int percent) {
     setState(() => _liveProgressPercent = percent);
-  }
-
-  void _onLessonWatched() {
-    setState(() {
-      _sidebarLessons = _lessonsWithTrophy(_sidebarLessons, widget.lessonId);
-      _liveProgressPercent = 100;
-    });
   }
 
   void _retry() {
@@ -355,72 +340,51 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppNavScaffold(
       backgroundColor: AppTheme.coursePageBackground,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppTheme.coursePageBackground,
-                border: Border(
-                  bottom: BorderSide(
-                    width: 1.1,
-                    color: AppTheme.homeHeaderBorder,
+      topBarBackground: AppTheme.coursePageBackground,
+      body: FutureBuilder<_LessonScreenData>(
+        future: _future,
+        builder: (context, snapshot) {
+          final data = snapshot.data ?? _cachedData;
+          final waiting = snapshot.connectionState == ConnectionState.waiting;
+
+          if (data != null) {
+            return Stack(
+              children: [
+                _buildContent(context, data),
+                if (waiting)
+                  const Positioned(
+                    top: 12,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              child: HomeTopBar(),
-            ),
-            Expanded(
-              child: FutureBuilder<_LessonScreenData>(
-                future: _future,
-                builder: (context, snapshot) {
-                  final data = snapshot.data ?? _cachedData;
-                  final waiting =
-                      snapshot.connectionState == ConnectionState.waiting;
+              ],
+            );
+          }
 
-                  if (data != null) {
-                    return Stack(
-                      children: [
-                        _buildContent(context, data),
-                        if (waiting)
-                          const Positioned(
-                            top: 12,
-                            left: 0,
-                            right: 0,
-                            child: Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  }
-
-                  if (waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return _LessonError(
-                      message: snapshot.error is ApiException
-                          ? (snapshot.error as ApiException).message
-                          : 'تعذّر تحميل الحصة',
-                      onRetry: _retry,
-                    );
-                  }
-                  return const Center(child: CircularProgressIndicator());
-                },
-              ),
-            ),
-          ],
-        ),
+          if (waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _LessonError(
+              message: snapshot.error is ApiException
+                  ? (snapshot.error as ApiException).message
+                  : 'تعذّر تحميل الحصة',
+              onRetry: _retry,
+            );
+          }
+          return const Center(child: CircularProgressIndicator());
+        },
       ),
     );
   }
@@ -461,7 +425,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                 asideTab: _asideTab,
                 onAsideTabChanged: _setAsideTab,
                 onProgressUpdate: _onVideoProgress,
-                onWatched: _onLessonWatched,
                 onPlaybackEnded: () => _onPlaybackEnded(data),
                 onOpenQuiz: _openQuiz,
               ),
@@ -541,7 +504,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   }) {
     switch (_asideTab) {
       case LessonAsideTab.chat:
-        if (data.chatId == null) {
+        if (!data.showTeacherChat) {
           return _buildVideosAside(
             data: data,
             asideHeight: asideHeight,
@@ -553,7 +516,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
         return SizedBox(
           height: asideHeight,
           child: LessonChatPanel(
-            chatId: data.chatId!,
+            chatId: data.chatId ?? 0,
             courseId: int.parse(courseId),
             teacher: data.teacher,
             onClose: () => _setAsideTab(LessonAsideTab.videos),
@@ -620,6 +583,7 @@ class _LessonScreenData {
     this.classificationQuizId,
     this.knowledgeQuizId,
     this.chatId,
+    this.showTeacherChat = false,
     this.classificationQuizCompleted = false,
     this.classificationLevelTitle,
     this.knowledgeQuizCompleted = false,
@@ -644,6 +608,7 @@ class _LessonScreenData {
   final int? classificationQuizId;
   final int? knowledgeQuizId;
   final int? chatId;
+  final bool showTeacherChat;
   final bool classificationQuizCompleted;
   final String? classificationLevelTitle;
   final bool knowledgeQuizCompleted;
@@ -767,7 +732,7 @@ class _ActionGrid extends StatelessWidget {
         label: asideTab == LessonAsideTab.files ? 'الفيديوهات' : 'الملازم الالكترونية',
         leading: LessonActionIcons.svg(
           asideTab == LessonAsideTab.files
-              ? LessonActionIcons.play
+              ? LessonActionIcons.videos
               : LessonActionIcons.bookOpen,
         ),
         onTap: () => onAsideTabChanged(
@@ -776,7 +741,7 @@ class _ActionGrid extends StatelessWidget {
               : LessonAsideTab.files,
         ),
       ),
-      if (data.isEnrolled && data.chatId != null)
+      if (data.showTeacherChat)
         LessonActionButton(
           label: 'اسأل المعلم',
           leading: LessonActionIcons.svg(LessonActionIcons.comment),
@@ -816,14 +781,20 @@ class _ActionGrid extends StatelessWidget {
                     : 'اكتملت المهمة',
                 labelAsBadge:
                     data.classificationLevelTitle?.isNotEmpty ?? false,
-                leading: LessonActionIcons.svg(LessonActionIcons.rankingStar),
+                leading: LessonActionIcons.svg(
+                  LessonActionIcons.rankingStar,
+                  color: AppColors.contentQuizIcon,
+                ),
                 style: LessonActionStyle.blueRadial,
                 showCompletionRibbon: true,
                 onTap: null,
               )
             : LessonActionButton(
                 label: 'تصنيفي',
-                leading: LessonActionIcons.svg(LessonActionIcons.rankingStar),
+                leading: LessonActionIcons.svg(
+                  LessonActionIcons.rankingStar,
+                  color: AppColors.contentQuizIcon,
+                ),
                 style: LessonActionStyle.blueRadial,
                 onTap: () => onOpenQuiz(
                   ClassificationQuizPage.pathFor(
@@ -839,9 +810,9 @@ class _ActionGrid extends StatelessWidget {
             ? LessonActionButton(
                 label: 'اكتملت المهمة',
                 leading: const MysteryCardIcon(
-                  size: 30,
+                  size: 24,
                   cardColor: Color.fromRGBO(255, 255, 255, 0.8),
-                  symbolColor: Color.fromRGBO(0, 0, 0, 0.9),
+                  symbolColor: Colors.black,
                 ),
                 style: LessonActionStyle.blueRadial,
                 showCompletionRibbon: true,

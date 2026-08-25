@@ -8,6 +8,7 @@ import '../../../core/widgets/quiz_answer_image.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../../../data/quizzes/answered_question_models.dart';
 import '../../../data/quizzes/quiz_models.dart';
+import 'exam_review_answer_layout.dart';
 
 class ExamReviewMcqAnswer extends StatelessWidget {
   const ExamReviewMcqAnswer({super.key, required this.question});
@@ -38,7 +39,7 @@ class ExamReviewMcqAnswer extends StatelessWidget {
                   labelColor: AppColors.textMuted,
                 ),
               ),
-              SizedBox(width: 16),
+              SizedBox(width: 8),
               Expanded(
                 child: _ColumnHeader(
                   label: 'الإجابة الصحيحة',
@@ -65,7 +66,7 @@ class ExamReviewMcqAnswer extends StatelessWidget {
                       )
                     : const _NoAnswerTile(),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   children: [
@@ -139,69 +140,71 @@ class _AnswerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isCorrect ? const Color(0x1A10B981) : const Color(0x1AEF4444);
-    final border = isCorrect ? const Color(0x4D10B981) : const Color(0x4DEF4444);
     final title = answer.displayTitle.isNotEmpty
         ? answer.displayTitle
         : QuizHtmlText.plainText(answer.title);
     final hasImage = answer.imageUrl != null && answer.imageUrl!.isNotEmpty;
+    final textStyle = AppTypography.bodySm.copyWith(
+      color: const Color(0xFFE5E7EB),
+      fontWeight: AppFonts.medium,
+      height: 1.625,
+    );
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.shadcnLg),
-        border: Border.all(color: border),
-        boxShadow: [
-          BoxShadow(
-            color: (isCorrect ? const Color(0xFF10B981) : const Color(0xFFEF4444))
-                .withValues(alpha: 0.1),
-            blurRadius: 14,
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showIcon) ...[
-            Container(
-              margin: const EdgeInsets.only(top: 2),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: isCorrect
-                    ? const Color(0x3310B981)
-                    : const Color(0x33EF4444),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isCorrect ? Icons.check_rounded : Icons.close_rounded,
-                size: 10,
-                color: isCorrect
-                    ? const Color(0xFF34D399)
-                    : const Color(0xFFF87171),
-              ),
+    Widget? icon;
+    if (showIcon) {
+      icon = Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isCorrect ? const Color(0x3310B981) : const Color(0x33EF4444),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          isCorrect ? Icons.check_rounded : Icons.close_rounded,
+          size: 10,
+          color: isCorrect ? const Color(0xFF34D399) : const Color(0xFFF87171),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ReviewHoverHighlight(
+        scale: 1.02,
+        builder: (context, highlighted) {
+          final bg =
+              isCorrect ? const Color(0x1A10B981) : const Color(0x1AEF4444);
+          final border =
+              isCorrect ? const Color(0x4D10B981) : const Color(0x4DEF4444);
+
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AppRadius.shadcnLg),
+              border: Border.all(color: border),
+              boxShadow: [
+                BoxShadow(
+                  color: (isCorrect
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444))
+                      .withValues(alpha: highlighted ? 0.18 : 0.1),
+                  blurRadius: highlighted ? 18 : 14,
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-          ],
-          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (title.isNotEmpty)
-                  Directionality(
-                    textDirection: QuizHtmlText.detectTextDirection(title),
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.start,
-                      style: AppTypography.bodySm.copyWith(
-                        color: const Color(0xFFE5E7EB),
-                        fontWeight: AppFonts.medium,
-                        height: 1.625,
-                      ),
-                    ),
-                  ),
+                  ReviewFlowingText(
+                    text: title,
+                    style: textStyle,
+                    leading: icon,
+                  )
+                else if (icon != null)
+                  Align(alignment: AlignmentDirectional.centerStart, child: icon),
                 if (hasImage) ...[
                   if (title.isNotEmpty) const SizedBox(height: 8),
                   Align(
@@ -220,8 +223,8 @@ class _AnswerTile extends StatelessWidget {
                 ],
               ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

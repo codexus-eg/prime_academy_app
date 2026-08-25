@@ -866,25 +866,23 @@ class _DropSlot extends StatelessWidget {
               : const Color(0xCC2A3350),
           radius: AppRadius.lg,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Stack(
+            fit: StackFit.expand,
             children: [
               if (hasImage)
-                Expanded(
-                  flex: hasText ? 7 : 85,
-                  child: Opacity(
-                    opacity: 0.35,
-                    child: QuizAnswerImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.contain,
-                    ),
+                Opacity(
+                  opacity: 0.35,
+                  child: QuizAnswerImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
                   ),
                 ),
               if (hasText)
-                Expanded(
-                  flex: hasImage ? 3 : 1,
-                  child: Center(
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
                     child: Text(
                       text,
                       textAlign: TextAlign.center,

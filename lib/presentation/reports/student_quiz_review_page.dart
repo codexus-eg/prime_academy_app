@@ -12,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../data/quizzes/answered_question_models.dart';
 import '../../data/quizzes/unit_quiz_api.dart';
 import '../exam/widgets/exam_review_question_list.dart';
+import '../home/widgets/app_nav_scaffold.dart';
 import 'quiz_report_pdf_delivery.dart';
 import 'quiz_report_print_html.dart';
 
@@ -133,30 +134,38 @@ class _StudentQuizReviewPageState extends State<StudentQuizReviewPage> {
     final points = review?.pointsAwarded ?? 0;
     final accuracy = score > 0 ? (points / score) * 100 : 0.0;
 
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: Scaffold(
-        backgroundColor: AppColors.mainBg,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _ReviewHeader(
-              loading: _loading,
-              printing: _printing,
-              review: review,
-              accuracy: accuracy,
-              onBack: () => context.pop(),
-              onPrint: review == null ? null : _printReport,
+    return AppNavScaffold(
+      backgroundColor: AppColors.mainBg,
+      body: Directionality(
+        textDirection: TextDirection.ltr,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: _ReviewHeader(
+                loading: _loading,
+                printing: _printing,
+                review: review,
+                accuracy: accuracy,
+                onBack: () => context.pop(),
+                onPrint: review == null ? null : _printReport,
+              ),
             ),
-            Expanded(
-              child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: AppColors.blue),
-                    )
-                  : _error != null
-                      ? _ReviewError(message: _error!, onRetry: _loadReview)
-                      : _ReviewBody(questions: review!.answeredQuestions),
-            ),
+            if (_loading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.blue),
+                ),
+              )
+            else if (_error != null)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _ReviewError(message: _error!, onRetry: _loadReview),
+              )
+            else
+              SliverToBoxAdapter(
+                child: _ReviewBody(questions: review!.answeredQuestions),
+              ),
           ],
         ),
       ),
@@ -445,39 +454,36 @@ class _ReviewBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1280),
-        child: ListView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.base,
-            vertical: AppSpacing.xl,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.base,
+        vertical: AppSpacing.xl,
+      ),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF12161F), Color(0xFF1B2130)],
           ),
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF12161F), Color(0xFF1B2130)],
-                ),
-                borderRadius: BorderRadius.circular(AppRadius.xl),
-                border: Border.all(color: const Color(0xFF313648)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1A2072E0),
-                    blurRadius: 20,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(AppSpacing.base),
-              child: ExamReviewQuestionList(
-                questions: questions,
-                shrinkWrap: true,
-              ),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(color: const Color(0xFF313648)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A2072E0),
+              blurRadius: 20,
+              offset: Offset(0, 4),
             ),
           ],
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.base,
+        ),
+        child: ExamReviewQuestionList(
+          questions: questions,
+          shrinkWrap: true,
         ),
       ),
     );

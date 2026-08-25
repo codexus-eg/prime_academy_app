@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_spacing.dart';
@@ -15,6 +17,7 @@ class ExamMcqGridView extends StatelessWidget {
     this.selectedId,
     this.selectedIds = const {},
     this.isMulti = false,
+    this.expandSquares = false,
   });
 
   final UnitMcqQuestion question;
@@ -25,16 +28,20 @@ class ExamMcqGridView extends StatelessWidget {
   final bool isMulti;
   final ValueChanged<int> onSelect;
 
-  int _crossAxisCount(BuildContext context) {
+  /// Passage child questions: fill more of the width (still square).
+  final bool expandSquares;
+
+  /// Web `max-h-37.5` / `lg:max-h-67.5` (rem×16).
+  static const _squareSm = 150.0;
+  static const _squareLg = 270.0;
+  static const _squarePassageMax = 240.0;
+
+  int _crossAxisCount(double width) {
     final count = question.answers.length;
-    final lg = MediaQuery.sizeOf(context).width >= 1024;
+    final lg = width >= 1024;
     if (count <= 2) return 2;
     if (count == 3) return lg ? 3 : 2;
     return lg ? 4 : 2;
-  }
-
-  double _cardHeight(BuildContext context) {
-    return MediaQuery.sizeOf(context).width >= 1024 ? 270 : 150;
   }
 
   ExamAnswerState _stateFor(int answerId) {
@@ -47,7 +54,8 @@ class ExamMcqGridView extends StatelessWidget {
     if (question.correctAnswerIds.contains(answerId)) {
       return ExamAnswerState.correct;
     }
-    final picked = isMulti ? selectedIds.contains(answerId) : selectedId == answerId;
+    final picked =
+        isMulti ? selectedIds.contains(answerId) : selectedId == answerId;
     if (picked) return ExamAnswerState.wrong;
     return ExamAnswerState.idle;
   }
@@ -55,49 +63,76 @@ class ExamMcqGridView extends StatelessWidget {
   bool _shouldShow(int answerId) {
     if (!isSubmitted) return true;
     final isCorrect = question.correctAnswerIds.contains(answerId);
-    final picked = isMulti ? selectedIds.contains(answerId) : selectedId == answerId;
+    final picked =
+        isMulti ? selectedIds.contains(answerId) : selectedId == answerId;
     return isCorrect || (picked && !isCorrect);
   }
 
   @override
   Widget build(BuildContext context) {
-    final crossAxisCount = _crossAxisCount(context);
-    final cardHeight = _cardHeight(context);
-
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxxl),
-        child: GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: AppSpacing.base,
-            mainAxisSpacing: AppSpacing.base,
-            mainAxisExtent: cardHeight,
-          ),
-          itemCount: question.answers.length,
-          itemBuilder: (context, index) {
-            final answer = question.answers[index];
-            final state = _stateFor(answer.id);
-            final show = _shouldShow(answer.id);
-            final disabled = isSubmitted && state == ExamAnswerState.idle;
-            final displayTitle = answer.displayTitle;
+        padding: EdgeInsets.symmetric(
+          horizontal: expandSquares ? AppSpacing.sm : AppSpacing.xxxl,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = MediaQuery.sizeOf(context).width;
+            final cols = _crossAxisCount(width);
+            final gap = AppSpacing.base;
+            final maxSquare = expandSquares
+                ? (width >= 1024 ? _squareLg : _squarePassageMax)
+                : (width >= 1024 ? _squareLg : _squareSm);
+            final fromWidth =
+                (constraints.maxWidth - gap * (cols - 1)) / cols;
+            final cellSize = math.min(fromWidth, maxSquare);
+            final gridWidth = cellSize * cols + gap * (cols - 1);
 
-            return ExamAnswerOptionButton(
-              option: ExamAnswerOption(
-                text: displayTitle.isNotEmpty ? displayTitle : answer.title,
-                id: answer.id,
-                imageUrl: answer.imageUrl,
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: gridWidth,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: cols,
+                    crossAxisSpacing: gap,
+                    mainAxisSpacing: gap,
+                    // Force square cells (width == height).
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: question.answers.length,
+                  itemBuilder: (context, index) {
+                    final answer = question.answers[index];
+                    final state = _stateFor(answer.id);
+                    final show = _shouldShow(answer.id);
+                    final disabled =
+                        isSubmitted && state == ExamAnswerState.idle;
+                    final displayTitle = answer.displayTitle;
+
+                    return AspectRatio(
+                      aspectRatio: 1,
+                      child: ExamAnswerOptionButton(
+                        option: ExamAnswerOption(
+                          text: displayTitle.isNotEmpty
+                              ? displayTitle
+                              : answer.title,
+                          id: answer.id,
+                          imageUrl: answer.imageUrl,
+                        ),
+                        index: index,
+                        state: state,
+                        shouldShow: show,
+                        onTap: (!ready || disabled)
+                            ? null
+                            : () => onSelect(answer.id),
+                      ),
+                    );
+                  },
+                ),
               ),
-              index: index,
-              state: state,
-              shouldShow: show,
-              cardHeight: cardHeight,
-              onTap: (!ready || disabled)
-                  ? null
-                  : () => onSelect(answer.id),
             );
           },
         ),

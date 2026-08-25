@@ -22,6 +22,7 @@ class RankingLeaderboardCard extends StatelessWidget {
     this.onPrevious,
     this.onNext,
     this.emptyState,
+    this.currentStudentKey,
   });
 
   final List<RankingStudent> students;
@@ -33,6 +34,7 @@ class RankingLeaderboardCard extends StatelessWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final Widget? emptyState;
+  final Key? currentStudentKey;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +74,7 @@ class RankingLeaderboardCard extends StatelessWidget {
               else
                 ...students.map(
                   (student) => RankingStudentRow(
+                    key: student.isCurrentStudent ? currentStudentKey : null,
                     student: student,
                     metrics: metrics,
                   ),

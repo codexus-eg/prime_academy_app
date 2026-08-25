@@ -99,6 +99,24 @@ class _WebAudioRecorder implements WebAudioRecorder {
   }
 
   @override
+  Future<void> pause() async {
+    final recorder = _recorder;
+    if (recorder == null) return;
+    try {
+      if (recorder.state == 'recording') recorder.pause();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> resume() async {
+    final recorder = _recorder;
+    if (recorder == null) return;
+    try {
+      if (recorder.state == 'paused') recorder.resume();
+    } catch (_) {}
+  }
+
+  @override
   void cancel() {
     _stopTracks();
     _chunks.clear();

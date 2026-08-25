@@ -16,7 +16,13 @@ abstract final class AppColors {
   static const Color mainBg2Half = Color(0x8012161F);
   static const Color mainBg3 = Color(0xFF161C29);
 
-  static const Color contentBtnBg = Color(0xFF141820);
+  static const Color contentBtnBg = mainBg3;
+
+  static const Color contentBtnRingHover = blue;
+
+  static const Color contentBtnFlashcardsHover = purple;
+
+  static const Color contentQuizIcon = Color(0xCCFFFFFF);
 
   static const Color contentCompletionBadge = blue;
 
@@ -82,6 +88,7 @@ abstract final class AppColors {
   static const Color overlayBlack10 = Color(0x1A000000);
   static const Color overlayBlack70 = Color(0xB3000000);
   static const Color overlayBlack80 = Color(0xCC000000);
+  static const Color overlayWhite2 = Color(0x05FFFFFF);
   static const Color overlayWhite3 = Color(0x08FFFFFF);
   static const Color overlayWhite4 = Color(0x0AFFFFFF);
   static const Color overlayWhite6 = Color(0x0FFFFFFF);
@@ -142,6 +149,21 @@ abstract final class AppColors {
   static const Color lessonProgressCardMid = Color(0xFF0E182E);
   static const Color lessonActionDark = Color(0xFF161C29);
   static const Color chatInputBorder = Color(0xFF155DFC);
+
+  /// Web `--color-aside-header-end` (dark1 chat/files header).
+  static const Color asideHeaderEnd = Color(0xFF0D1A35);
+
+  /// Tailwind `text-gray-300`.
+  static const Color gray300 = Color(0xFFD1D5DB);
+
+  /// Web `--color-accent` used by `.button-gradient`.
+  static const Color cssAccent = Color(0xFF111827);
+
+  /// Web `--color-dialog-border`.
+  static const Color dialogBorder = Color(0x402072E0);
+
+  /// Web `accent-icon-muted` `rgba(32, 114, 224, 0.6)`.
+  static const Color accentIconMuted = Color(0x992072E0);
 
   static const Color wobblyRingBlue = Color(0xFF2072E0);
 

@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../../../data/quizzes/answered_question_display.dart';
 import '../../../data/quizzes/answered_question_models.dart';
+import 'exam_review_answer_layout.dart';
 
 class ExamReviewTextAnswer extends StatelessWidget {
   const ExamReviewTextAnswer({super.key, required this.question});
@@ -32,7 +33,7 @@ class ExamReviewTextAnswer extends StatelessWidget {
                   labelColor: AppColors.textMuted,
                 ),
               ),
-              SizedBox(width: 16),
+              SizedBox(width: 8),
               Expanded(
                 child: _ColumnHeader(
                   label: 'الإجابة الصحيحة',
@@ -53,15 +54,17 @@ class ExamReviewTextAnswer extends StatelessWidget {
                           for (final line in studentLines)
                             _TextTile(
                               text: line,
-                              style: _lineMatches(line, correctLines)
-                                  ? _TextTileStyle.studentCorrect
-                                  : _TextTileStyle.studentWrong,
+                              style: _studentAnswerStyle(
+                                question: question,
+                                studentLine: line,
+                                correctLines: correctLines,
+                              ),
                             ),
                         ],
                       )
                     : const _NoAnswerTile(),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   children: [
@@ -130,9 +133,23 @@ enum _TextTileStyle {
   answerKey,
 }
 
-bool _lineMatches(String student, List<String> correctLines) {
-  final normalized = student.toLowerCase().trim();
-  return correctLines.any((c) => c.toLowerCase().trim() == normalized);
+/// Essay review must follow the API verdict (`is_correct`), not a local
+/// string match — when dashboard option «جعل أي إجابة صحيحة» is on, the
+/// student text can differ from the model answer and still be correct.
+_TextTileStyle _studentAnswerStyle({
+  required AnsweredQuizQuestion question,
+  required String studentLine,
+  required List<String> correctLines,
+}) {
+  if (question.type == 'essay') {
+    return question.isCorrect
+        ? _TextTileStyle.studentCorrect
+        : _TextTileStyle.studentWrong;
+  }
+
+  final normalized = studentLine.toLowerCase().trim();
+  final matches = correctLines.any((c) => c.toLowerCase().trim() == normalized);
+  return matches ? _TextTileStyle.studentCorrect : _TextTileStyle.studentWrong;
 }
 
 class _TextTile extends StatelessWidget {
@@ -186,47 +203,55 @@ class _TextTile extends StatelessWidget {
     }
 
     final plain = QuizHtmlText.plainText(text);
+    final textStyle = AppTypography.bodySm.copyWith(
+      color: const Color(0xFFE5E7EB),
+      height: 1.625,
+    );
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.shadcnLg),
-        border: Border.all(color: border),
-        boxShadow: shadows,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showIcon) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Icon(
-                isCorrectIcon ? Icons.check_rounded : Icons.close_rounded,
-                size: 14,
-                color: isCorrectIcon
-                    ? const Color(0xFF34D399)
-                    : const Color(0xFFF87171),
-              ),
+    Widget? icon;
+    if (showIcon) {
+      icon = Icon(
+        isCorrectIcon ? Icons.check_rounded : Icons.close_rounded,
+        size: 14,
+        color: isCorrectIcon
+            ? const Color(0xFF34D399)
+            : const Color(0xFFF87171),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ReviewHoverHighlight(
+        scale: 1.02,
+          builder: (context, highlighted) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AppRadius.shadcnLg),
+              border: Border.all(color: border),
+              boxShadow: highlighted
+                  ? [
+                      ...shadows,
+                      BoxShadow(
+                        color: (isCorrectIcon
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444))
+                            .withValues(alpha: 0.16),
+                        blurRadius: 18,
+                      ),
+                    ]
+                  : shadows,
             ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Directionality(
-              textDirection: QuizHtmlText.detectTextDirection(plain),
-              child: Text(
-                plain,
-                textAlign: TextAlign.start,
-                style: AppTypography.bodySm.copyWith(
-                  color: const Color(0xFFE5E7EB),
-                  height: 1.625,
-                ),
-              ),
+            child: ReviewFlowingText(
+              text: plain,
+              style: textStyle,
+              leading: icon,
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

@@ -535,72 +535,82 @@ class _ReOrderOptionBox extends StatelessWidget {
                 ),
               ),
             Positioned.fill(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  12,
-                  showLetterBadge ? 34 : 12,
-                  12,
-                  12,
-                ),
-                child: _buildContent(
-                  imageUrl: imageUrl,
-                  hasImage: hasImage,
-                  hasTitle: hasTitle,
-                  displayTitle: displayTitle,
-                  palette: palette,
-                ),
-              ),
+              child: hasImage
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        QuizAnswerImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          iconColor: palette.text,
+                        ),
+                        if (hasTitle)
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: DecoratedBox(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Color(0xB3000000),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: QuizHtmlText(
+                                  html: displayTitle,
+                                  textAlign: TextAlign.center,
+                                  baseStyle: AppTypography.bodyLg.copyWith(
+                                    color: palette.text,
+                                    fontWeight: AppFonts.semibold,
+                                    height: 1.3,
+                                    shadows: const [
+                                      Shadow(
+                                        color: Color(0x80000000),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        showLetterBadge ? 34 : 12,
+                        12,
+                        12,
+                      ),
+                      child: Center(
+                        child: QuizHtmlText(
+                          html: displayTitle,
+                          textAlign: TextAlign.center,
+                          baseStyle: AppTypography.bodyLg.copyWith(
+                            color: palette.text,
+                            fontWeight: AppFonts.semibold,
+                            height: 1.3,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0x80000000),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildContent({
-    required String? imageUrl,
-    required bool hasImage,
-    required bool hasTitle,
-    required String displayTitle,
-    required ClassificationMatchingPalette palette,
-  }) {
-    final imageHeight = hasTitle ? slotHeight * 0.55 : slotHeight * 0.65;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (hasImage)
-          SizedBox(
-            width: double.infinity,
-            height: imageHeight,
-            child: QuizAnswerImage(
-              imageUrl: imageUrl,
-              iconColor: palette.text,
-            ),
-          ),
-        if (hasImage && hasTitle) const SizedBox(height: 6),
-        if (hasTitle)
-          Expanded(
-            child: Center(
-              child: QuizHtmlText(
-                html: displayTitle,
-                textAlign: TextAlign.center,
-                baseStyle: AppTypography.bodyLg.copyWith(
-                  color: palette.text,
-                  fontWeight: AppFonts.semibold,
-                  height: 1.3,
-                  shadows: const [
-                    Shadow(
-                      color: Color(0x80000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

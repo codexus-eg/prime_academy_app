@@ -104,15 +104,15 @@ abstract final class AppGradients {
     stops: [0.0, 1.0],
   );
 
-  static const LinearGradient rankingCurrentRowRtl = LinearGradient(
-    begin: Alignment.centerRight,
-    end: Alignment.centerLeft,
+  static const LinearGradient rankingCurrentRow = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
     colors: [
       AppColors.rankBlueGlow20,
       AppColors.rankBlueGlow10,
       AppColors.transparent,
     ],
-    stops: [0.0, 0.45, 1.0],
+    stops: [0.0, 0.5, 1.0],
   );
 
   static const LinearGradient incompleteTaskCountBadge = LinearGradient(
@@ -280,6 +280,21 @@ abstract final class AppGradients {
     colors: [AppColors.primaryBg, Color(0xFF091C40)],
   );
 
+  /// Web chat/files header: `linear-gradient(0deg, aside-header-start, aside-header-end)`.
+  static const LinearGradient lessonChatFilesHeader = LinearGradient(
+    begin: Alignment.bottomCenter,
+    end: Alignment.topCenter,
+    colors: [AppColors.primaryBg, AppColors.asideHeaderEnd],
+  );
+
+  /// Web `.button-gradient` default layer: radial at top right.
+  static const RadialGradient chatRoleBadge = RadialGradient(
+    center: Alignment.topRight,
+    radius: 1.35,
+    colors: [AppColors.courseTitleGradientStart, AppColors.cssAccent],
+    stops: [0, 0.88],
+  );
+
   static const LinearGradient lessonProgressCard = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -294,6 +309,12 @@ abstract final class AppGradients {
     begin: Alignment.centerRight,
     end: Alignment.centerLeft,
     colors: [AppColors.loginGradientStart, AppColors.accent],
+  );
+
+  static const LinearGradient selectItemHover = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [AppColors.rankBlueGlow10, AppColors.rankBlueLightGlow5],
   );
 
   static const LinearGradient reportIconBox = LinearGradient(

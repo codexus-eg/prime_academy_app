@@ -20,6 +20,8 @@ Future<PickedFile?> pickWebFile({required String accept}) async {
       maxWidth: 2048,
       maxHeight: 2048,
       imageQuality: 85,
+      // Avoid requesting full media-library access / Photo Library permission.
+      requestFullMetadata: false,
     );
     if (file == null) return null;
 
@@ -118,6 +120,24 @@ class _MobileAudioRecorder implements WebAudioRecorder {
       path: _path!,
     );
     return true;
+  }
+
+  @override
+  Future<void> pause() async {
+    try {
+      if (await _recorder.isRecording()) {
+        await _recorder.pause();
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> resume() async {
+    try {
+      if (await _recorder.isPaused()) {
+        await _recorder.resume();
+      }
+    } catch (_) {}
   }
 
   @override

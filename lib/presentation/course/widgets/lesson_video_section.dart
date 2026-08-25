@@ -86,7 +86,14 @@ class LessonVideoSection extends StatelessWidget {
           onPlaybackEnded: onPlaybackEnded,
         );
       case LessonVideoKind.embed:
-        return LessonEmbedPlayer(videoUrl: url);
+        return LessonEmbedPlayer(
+          videoUrl: url,
+          lessonId: lessonId,
+          initialPositionSeconds: initialPositionSeconds,
+          onProgressUpdate: onProgressUpdate,
+          onWatched: onWatched,
+          onPlaybackEnded: onPlaybackEnded,
+        );
       case LessonVideoKind.none:
         return _placeholder('الدرس غير متاح حالياً');
     }

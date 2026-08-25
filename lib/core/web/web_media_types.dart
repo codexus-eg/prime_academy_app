@@ -31,6 +31,10 @@ abstract class WebAudioRecorder {
 
   Future<bool> start();
 
+  Future<void> pause();
+
+  Future<void> resume();
+
   void cancel();
 
   Future<RecordedAudio?> stop();

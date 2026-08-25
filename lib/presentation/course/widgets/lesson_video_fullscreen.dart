@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 
 export 'lesson_video_fullscreen_stub.dart'
-    if (dart.library.html) 'lesson_video_fullscreen_web.dart';
+    if (dart.library.js_interop) 'lesson_video_fullscreen_web.dart';
 
 class LessonVideoFullscreenPage extends StatefulWidget {
   const LessonVideoFullscreenPage({

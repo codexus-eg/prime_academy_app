@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
@@ -34,6 +35,7 @@ Widget _certificateLatinText(
   TextAlign textAlign = TextAlign.center,
   int? maxLines,
   TextOverflow? overflow,
+  bool softWrap = true,
 }) {
   return Builder(
     builder: (context) => MediaQuery(
@@ -43,10 +45,198 @@ Widget _certificateLatinText(
         textAlign: textAlign,
         maxLines: maxLines,
         overflow: overflow,
+        softWrap: softWrap,
         style: style,
       ),
     ),
   );
+}
+
+/// Keeps a Latin title on one line (web does not mid-word wrap `CERTIFICATE`).
+///
+/// `BoxFit.scaleDown` otherwise passes the parent max-width to [Text], which
+/// wraps first and then "fits" the already-wrapped block (no scale).
+Widget _certificateFitLatin(
+  String text, {
+  required TextStyle style,
+  TextAlign textAlign = TextAlign.center,
+}) {
+  return SizedBox(
+    width: double.infinity,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: UnconstrainedBox(
+        child: _certificateLatinText(
+          text,
+          style: style,
+          textAlign: textAlign,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.visible,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Arabic quote: scale down instead of breaking words across lines.
+Widget _certificateFitQuote(String text, {required double fontSize}) {
+  return SizedBox(
+    width: double.infinity,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: UnconstrainedBox(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.rtl,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.visible,
+          style: _certificateQuotePreviewStyle(fontSize),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Web full-certificate typography (`md:` breakpoint at 768px).
+class _CertificateFullMetrics {
+  const _CertificateFullMetrics(double width)
+      : isMobile = width < 768,
+        outerPadding = 16,
+        innerPadding = width < 768 ? 24 : 32,
+        titleSize = width < 768 ? 36 : 48,
+        titleTracking = width < 768 ? 10 : 10,
+        brandSize = width < 768 ? 30 : 36,
+        quoteSize = width < 768 ? 24 : 30,
+        nameSize = width < 768 ? 36 : 48,
+        sectionGap = width < 768 ? 24 : 32,
+        classicTitleSize = width < 768 ? 30 : 36,
+        classicBrandSize = width < 768 ? 24 : 30,
+        classicQuoteSize = width < 768 ? 20 : 24,
+        sideAccentTitleSize = width < 768 ? 36 : 48,
+        sideAccentBrandSize = width < 768 ? 24 : 30,
+        sideAccentQuoteSize = width < 768 ? 24 : 30,
+        sideAccentNameSize = width < 768 ? 30 : 36,
+        hexTitleSize = width < 768 ? 36 : 48,
+        hexBrandSize = width < 768 ? 24 : 30,
+        hexQuoteSize = width < 768 ? 24 : 30,
+        hexNameSize = width < 768 ? 30 : 36,
+        hexBracketSize = width < 768 ? 32 : 32;
+
+  final bool isMobile;
+  final double outerPadding;
+  final double innerPadding;
+  final double titleSize;
+  final double titleTracking;
+  final double brandSize;
+  final double quoteSize;
+  final double nameSize;
+  final double sectionGap;
+  final double classicTitleSize;
+  final double classicBrandSize;
+  final double classicQuoteSize;
+  final double sideAccentTitleSize;
+  final double sideAccentBrandSize;
+  final double sideAccentQuoteSize;
+  final double sideAccentNameSize;
+  final double hexTitleSize;
+  final double hexBrandSize;
+  final double hexQuoteSize;
+  final double hexNameSize;
+  final double hexBracketSize;
+
+  static const double outerPaddingStatic = 16;
+}
+
+Widget _certificateFullQuoteText(String text, {required double fontSize}) {
+  return _certificateFitQuote(text, fontSize: fontSize);
+}
+
+Widget _certificateFullShell({
+  required Widget child,
+  BoxConstraints? constraints,
+}) {
+  return LayoutBuilder(
+    builder: (context, layoutConstraints) {
+      return Padding(
+        padding: const EdgeInsets.all(_CertificateFullMetrics.outerPaddingStatic),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: constraints ?? const BoxConstraints(maxWidth: 768),
+            child: child,
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// Font Awesome 5.15.4 solid `certificate` — same glyph as web `FaCertificate`.
+class _CertificateBadgeIcon extends StatelessWidget {
+  const _CertificateBadgeIcon({
+    required this.size,
+    required this.color,
+  });
+
+  final double size;
+  final Color color;
+
+  /// Copied from `@fortawesome/fontawesome-free@5.15.4/svgs/solid/certificate.svg`
+  /// (react-icons/fa `FaCertificate` used in CertificateClassicFrame.tsx).
+  static const _faCertificateSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <path fill="currentColor" d="M458.622 255.92l45.985-45.005c13.708-12.977 7.316-36.039-10.664-40.339l-62.65-15.99 17.661-62.015c4.991-17.838-11.829-34.663-29.661-29.671l-61.994 17.667-15.984-62.671C337.085.197 313.765-6.276 300.99 7.228L256 53.57 211.011 7.229c-12.63-13.351-36.047-7.234-40.325 10.668l-15.984 62.671-61.995-17.667C74.87 57.907 58.056 74.738 63.046 92.572l17.661 62.015-62.65 15.99C.069 174.878-6.31 197.944 7.392 210.915l45.985 45.005-45.985 45.004c-13.708 12.977-7.316 36.039 10.664 40.339l62.65 15.99-17.661 62.015c-4.991 17.838 11.829 34.663 29.661 29.671l61.994-17.667 15.984 62.671c4.439 18.575 27.696 24.018 40.325 10.668L256 458.61l44.989 46.001c12.5 13.488 35.987 7.486 40.325-10.668l15.984-62.671 61.994 17.667c17.836 4.994 34.651-11.837 29.661-29.671l-17.661-62.015 62.65-15.99c17.987-4.302 24.366-27.367 10.664-40.339l-45.984-45.004z"/>
+</svg>
+''';
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.string(
+      _faCertificateSvg,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+    );
+  }
+}
+
+/// Web ClassicFrame full badge: always `w-16 h-16` + `FaCertificate` 28px white.
+class _CertificateClassicBadge extends StatelessWidget {
+  const _CertificateClassicBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.certificateAccent,
+            AppColors.purpleLight,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.certificateGlow.withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: const _CertificateBadgeIcon(
+        size: 28,
+        color: Colors.white,
+      ),
+    );
+  }
 }
 
 abstract final class AwardCertificatePreview {
@@ -135,7 +325,7 @@ class _CertificatesDialog extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -343,6 +533,7 @@ class _CertificatePremium extends StatelessWidget {
   }
 
   Widget _premiumPreview() {
+    // Web CertificatePremium preview (p-1.5, gap-1.5, corner glows).
     return Container(
       width: double.infinity,
       height: double.infinity,
@@ -379,57 +570,76 @@ class _CertificatePremium extends StatelessWidget {
                 children: [
                   const Positioned.fill(child: _CertificateDualRadialOverlay()),
                   Positioned.fill(
-                    child: _certificatePreviewColumn(
-                      padding: EdgeInsets.zero,
-                      children: _withPreviewGaps([
-                        _certificateLatinText(
-                          'CERTIFICATE',
-                          style: _certificateLatinStyle(
-                            fontSize: 12,
-                            fontWeight: AppFonts.semibold,
-                            color: AppColors.certificateAccent,
-                            letterSpacing: 3,
-                          ),
-                        ),
-                        _certificateLatinText(
-                          'PRIMEACADEMY',
-                          style: _certificateLatinStyle(
-                            fontSize: 11,
-                            fontWeight: AppFonts.bold,
-                            color: AppColors.primary,
-                            letterSpacing: 0.55,
-                          ),
-                        ),
-                        _certificatePremiumQuoteBox('والله انك كفو يا اسطوره'),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Text(
-                            studentName,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.custom(
-                              fontSize: 15,
-                              fontWeight: AppFonts.bold,
-                              color: AppColors.primary,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _certificateLatinText(
+                              'CERTIFICATE',
+                              style: _certificateLatinStyle(
+                                fontSize: 12,
+                                fontWeight: AppFonts.semibold,
+                                color: AppColors.certificateAccent,
+                                letterSpacing: 3,
+                              ),
                             ),
-                          ),
-                        ),
-                        Container(
-                          height: 0.5,
-                          width: 48,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                AppColors.certificateAccent,
-                                Colors.transparent,
-                              ],
+                            const SizedBox(height: 6),
+                            _certificateLatinText(
+                              'PRIMEACADEMY',
+                              style: _certificateLatinStyle(
+                                fontSize: 11,
+                                fontWeight: AppFonts.bold,
+                                color: AppColors.primary,
+                                letterSpacing: 0.55,
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 6),
+                            _webPremiumQuotePreview(
+                              'والله انك كفو يا اسطوره',
+                            ),
+                            const SizedBox(height: 6),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              child: Text(
+                                studentName,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.custom(
+                                  fontSize: 15,
+                                  fontWeight: AppFonts.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              height: 0.5,
+                              width: 48,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    AppColors.certificateAccent,
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _teacherBlock(
+                              preview: true,
+                              teacherName: teacherName,
+                            ),
+                          ],
                         ),
-                        _teacherBlock(preview: true, teacherName: teacherName),
-                      ]),
+                      ),
                     ),
                   ),
                 ],
@@ -442,125 +652,114 @@ class _CertificatePremium extends StatelessWidget {
   }
 
   Widget _premiumFull() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final compact = width < 560;
-        final isMobile = width < 768;
+    return _certificateFullShell(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _CertificateFullMetrics(constraints.maxWidth);
 
-        final outerPadding = compact ? 8.0 : 16.0;
-        final innerPadding = compact ? 16.0 : (isMobile ? 24.0 : 32.0);
-        final titleSize = compact ? 26.0 : (isMobile ? 32.0 : 48.0);
-        final brandSize = compact ? 20.0 : (isMobile ? 26.0 : 36.0);
-        final quoteSize = compact || isMobile ? 24.0 : 30.0;
-        final nameSize = compact ? 20.0 : (isMobile ? 28.0 : 48.0);
-        final titleTracking = compact ? 6.0 : (isMobile ? 8.0 : 10.0);
-        final sectionGap = compact ? 12.0 : (isMobile ? 20.0 : 24.0);
-
-        return Padding(
-          padding: EdgeInsets.all(outerPadding),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 768),
-              child: Container(
-                width: double.infinity,
-                clipBehavior: Clip.hardEdge,
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryBg,
-                  borderRadius: AppRadius.borderLg,
-                  border: Border.all(color: AppColors.certificateBorder),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x40000000),
-                      blurRadius: 24,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
+          return Container(
+            width: double.infinity,
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(
+              color: AppColors.secondaryBg,
+              borderRadius: AppRadius.borderLg,
+              border: Border.all(color: AppColors.certificateBorder),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
                 ),
-                child: Stack(
-                  children: [
-                    const Positioned.fill(child: _CertificateDualRadialOverlay()),
-                    Padding(
-                      padding: EdgeInsets.all(innerPadding),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _certificateLatinText(
-                            'CERTIFICATE',
-                            style: _certificateLatinStyle(
-                              fontSize: titleSize,
-                              fontWeight: AppFonts.light,
-                              color: AppColors.certificateAccent,
-                              letterSpacing: titleTracking,
-                              height: 1.1,
-                            ).copyWith(
-                              shadows: const [
-                                Shadow(
-                                  color: AppColors.certificateGlow,
-                                  blurRadius: 10,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+              ],
+            ),
+            child: Stack(
+              children: [
+                const Positioned.fill(child: _CertificateDualRadialOverlay()),
+                Padding(
+                  padding: EdgeInsets.all(metrics.innerPadding),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _certificateFitLatin(
+                        'CERTIFICATE',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.titleSize,
+                          fontWeight: AppFonts.light,
+                          color: AppColors.certificateAccent,
+                          letterSpacing: metrics.titleTracking,
+                          height: 1.1,
+                        ).copyWith(
+                          shadows: const [
+                            Shadow(
+                              color: AppColors.certificateGlow,
+                              blurRadius: 10,
+                              offset: Offset(0, 2),
                             ),
-                          ),
-                          SizedBox(height: compact ? 4 : 8),
-                          _certificateLatinText(
-                            'PRIMEACADEMY',
-                            style: _certificateLatinStyle(
-                              fontSize: brandSize,
-                              fontWeight: AppFonts.bold,
-                              color: AppColors.primary,
-                              letterSpacing: compact ? 1 : 2,
-                            ),
-                          ),
-                          SizedBox(height: sectionGap),
-                          _certificatePremiumQuoteBox(
-                            'والله انك كفو يا اسطوره',
-                            fontSize: quoteSize,
-                          ),
-                          SizedBox(height: sectionGap),
-                          Text(
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 4 : 8),
+                      _certificateFitLatin(
+                        'PRIMEACADEMY',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.brandSize,
+                          fontWeight: AppFonts.bold,
+                          color: AppColors.primary,
+                          letterSpacing: metrics.isMobile ? 1 : 2,
+                        ),
+                      ),
+                      SizedBox(height: metrics.sectionGap),
+                      _certificatePremiumQuoteBox(
+                        'والله انك كفو يا اسطوره',
+                        fontSize: metrics.quoteSize,
+                      ),
+                      SizedBox(height: metrics.sectionGap),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
                             studentName,
                             textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            softWrap: false,
                             style: AppTypography.custom(
-                              fontSize: nameSize,
+                              fontSize: metrics.nameSize,
                               fontWeight: AppFonts.semibold,
                               color: AppColors.primary,
                               letterSpacing: 1,
                             ),
                           ),
-                          SizedBox(height: compact ? 8 : 12),
-                          Container(
-                            height: compact ? 1 : 2,
-                            width: compact ? 72 : 96,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  AppColors.certificateAccent,
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: sectionGap),
-                          _teacherBlock(
-                            preview: false,
-                            compact: compact,
-                            teacherName: teacherName,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: metrics.isMobile ? 12 : 16),
+                      Container(
+                        height: metrics.isMobile ? 2 : 2,
+                        width: metrics.isMobile ? 96 : 96,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.transparent,
+                              AppColors.certificateAccent,
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: metrics.sectionGap),
+                      _teacherBlock(
+                        preview: false,
+                        compact: metrics.isMobile,
+                        teacherName: teacherName,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -582,15 +781,25 @@ class _CertificateClassicFrame extends StatelessWidget {
   }
 
   Widget _preview() {
-    return _previewShell(
-      borderRadius: AppRadius.borderMd,
+    // Web CertificateClassicFrame preview.
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
       padding: const EdgeInsets.all(6),
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: AppColors.secondaryBg,
+        borderRadius: AppRadius.borderMd,
+      ),
       child: Stack(
         children: [
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.blue, width: 2),
+                border: Border.all(
+                  color: AppColors.certificateBorder,
+                  width: 2,
+                ),
                 borderRadius: AppRadius.borderMd,
               ),
             ),
@@ -600,8 +809,8 @@ class _CertificateClassicFrame extends StatelessWidget {
               padding: const EdgeInsets.all(6),
               child: CustomPaint(
                 painter: _CertificateDashedBorderPainter(
-                  color: AppColors.blue.withValues(alpha: 0.4),
-                  radius: AppRadius.md - 9,
+                  color: AppColors.certificateBorder.withValues(alpha: 0.5),
+                  radius: AppRadius.md - 3,
                 ),
               ),
             ),
@@ -614,7 +823,10 @@ class _CertificateClassicFrame extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [AppColors.blue, AppColors.purpleLight],
+                    colors: [
+                      AppColors.certificateAccent,
+                      AppColors.purpleLight,
+                    ],
                   ),
                   borderRadius: AppRadius.borderMd,
                 ),
@@ -622,74 +834,96 @@ class _CertificateClassicFrame extends StatelessWidget {
             ),
           ),
           Positioned.fill(
-            child: _certificatePreviewColumn(
-              children: _withPreviewGaps([
-              const Icon(Icons.workspace_premium, color: AppColors.blue, size: 14),
-              Text(
-                'Certificate',
-                style: AppTypography.custom(
-                  fontSize: 11,
-                  fontWeight: AppFonts.bold,
-                  color: AppColors.blue,
-                  letterSpacing: 3,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _CertificateBadgeIcon(
+                      size: 14,
+                      color: AppColors.certificateAccent,
+                    ),
+                    const SizedBox(height: 4),
+                    _certificateLatinText(
+                      'CERTIFICATE',
+                      style: _certificateLatinStyle(
+                        fontSize: 11,
+                        fontWeight: AppFonts.semibold,
+                        color: AppColors.certificateAccent,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    _certificateLatinText(
+                      'PRIMEACADEMY',
+                      style: _certificateLatinStyle(
+                        fontSize: 10,
+                        fontWeight: AppFonts.bold,
+                        color: AppColors.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _certificateLatinText(
+                        'THIS CERTIFICATE IS PROUDLY PRESENTED TO',
+                        style: _certificateLatinStyle(
+                          fontSize: 8,
+                          fontWeight: AppFonts.regular,
+                          color: AppColors.textMuted,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.certificateAccent,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        studentName,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.custom(
+                          fontSize: 14,
+                          fontWeight: AppFonts.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            AppColors.certificateBgSubtle,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: _CertificateQuoteText(
+                        text: 'بنتوقعلك مستقبل كبير جدا ان شاء الله',
+                        fontSize: 12,
+                      ),
+                    ),
+                    _teacherBlock(preview: true, teacherName: teacherName),
+                  ],
                 ),
               ),
-              Text(
-                'PRIMEACADEMY',
-                style: AppTypography.custom(
-                  fontSize: 10,
-                  fontWeight: AppFonts.bold,
-                  color: AppColors.primary,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              Text(
-                'This Certificate is Proudly Presented to',
-                textAlign: TextAlign.center,
-                style: AppTypography.custom(
-                  fontSize: 8,
-                  fontWeight: AppFonts.light,
-                  color: AppColors.textMuted,
-                  letterSpacing: 3,
-                ),
-              ),
-              Container(
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppColors.blue, width: 0.5),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Text(
-                  studentName,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.custom(
-                    fontSize: 14,
-                    fontWeight: AppFonts.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      AppColors.blue.withValues(alpha: 0.08),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: _CertificateQuoteText(
-                  text: 'بنتوقعلك مستقبل كبير جدا ان شاء الله',
-                ),
-              ),
-              _teacherBlock(preview: true, teacherName: teacherName),
-            ]),
             ),
           ),
         ],
@@ -698,103 +932,226 @@ class _CertificateClassicFrame extends StatelessWidget {
   }
 
   Widget _full() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.secondaryBg,
-        border: Border.all(color: AppColors.blue, width: 2),
-        borderRadius: AppRadius.borderAuthButton,
-        boxShadow: const [
-          BoxShadow(color: Color(0x40000000), blurRadius: 24, offset: Offset(0, 8)),
-        ],
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
+    return _certificateFullShell(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _CertificateFullMetrics(constraints.maxWidth);
+
+          return Container(
+            width: double.infinity,
+            clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [AppColors.blue, AppColors.purpleLight],
-              ),
-              boxShadow: [
+              color: AppColors.secondaryBg,
+              borderRadius: AppRadius.borderMd,
+              border: Border.all(color: AppColors.certificateBorder, width: 2),
+              boxShadow: const [
                 BoxShadow(
-                  color: AppColors.blue.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: Color(0x40000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
-            child: const Icon(Icons.workspace_premium, color: AppColors.primary, size: 28),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Certificate',
-            style: TextStyle(
-              color: AppColors.blue,
-              fontSize: 32,
-              letterSpacing: 6,
-              fontWeight: AppFonts.semibold,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: CustomPaint(
+                      painter: _CertificateDashedBorderPainter(
+                        color: AppColors.certificateBorder.withValues(alpha: 0.5),
+                        radius: AppRadius.md - 4,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.certificateAccent,
+                            AppColors.purpleLight,
+                          ],
+                        ),
+                        borderRadius: AppRadius.borderMd,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.15,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.certificateAccent,
+                            Colors.transparent,
+                            Colors.transparent,
+                            AppColors.purpleLight,
+                          ],
+                          stops: const [0, 0.4, 0.6, 1],
+                        ),
+                        borderRadius: AppRadius.borderMd,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: Container(
+                      width: 128,
+                      height: 128,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.topRight,
+                          radius: 0.7,
+                          colors: [
+                            AppColors.certificateAccent,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: Container(
+                      width: 128,
+                      height: 128,
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.bottomLeft,
+                          radius: 0.7,
+                          colors: [
+                            AppColors.purpleLight,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(metrics.innerPadding),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CertificateClassicBadge(),
+                      SizedBox(height: metrics.isMobile ? 16 : 24),
+                      _certificateFitLatin(
+                        'CERTIFICATE',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.classicTitleSize,
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.certificateAccent,
+                          letterSpacing: 6,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _certificateFitLatin(
+                        'of Achievement',
+                        style: _certificateLatinStyle(
+                          fontSize: 14,
+                          fontWeight: AppFonts.regular,
+                          color: AppColors.textMuted,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 16 : 24),
+                      _certificateFitLatin(
+                        'PRIMEACADEMY',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.classicBrandSize,
+                          fontWeight: AppFonts.bold,
+                          color: AppColors.primary,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _certificateFitLatin(
+                        'THIS CERTIFICATE IS PROUDLY PRESENTED TO',
+                        style: _certificateLatinStyle(
+                          fontSize: 14,
+                          fontWeight: AppFonts.regular,
+                          color: AppColors.textMuted,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 8 : 16),
+                      Container(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: AppColors.certificateAccent,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          studentName,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.custom(
+                            fontSize: metrics.classicTitleSize,
+                            fontWeight: AppFonts.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 16 : 24),
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: metrics.isMobile ? 12 : 16,
+                        ),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.transparent,
+                              AppColors.certificateBgSubtle,
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                        child: _certificateFullQuoteText(
+                          'بنتوقعلك مستقبل كبير جدا ان شاء الله',
+                          fontSize: metrics.classicQuoteSize,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 24 : 32),
+                      _teacherBlock(
+                        preview: false,
+                        compact: metrics.isMobile,
+                        teacherName: teacherName,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-          Text(
-            'of Achievement',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-              letterSpacing: 4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'PRIMEACADEMY',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 24,
-              letterSpacing: 2,
-              fontWeight: AppFonts.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'This Certificate is Proudly Presented to',
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-              letterSpacing: 3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.blue, width: 2)),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: Text(
-              studentName,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 28,
-                fontWeight: AppFonts.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'بنتوقعلك مستقبل كبير جدا ان شاء الله',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.yellow,
-              fontSize: 20,
-              fontWeight: AppFonts.semibold,
-            ),
-          ),
-          const SizedBox(height: 24),
-          _teacherBlock(preview: false, teacherName: teacherName),
-        ],
+          );
+        },
       ),
     );
   }
@@ -817,9 +1174,15 @@ class _CertificateSideAccent extends StatelessWidget {
   }
 
   Widget _preview() {
-    return _previewShell(
-      borderRadius: AppRadius.borderMd,
-      clipBehavior: Clip.antiAlias,
+    // Web CertificateSideAccent preview.
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: AppColors.secondaryBg,
+        borderRadius: AppRadius.borderMd,
+      ),
       child: Stack(
         children: [
           Positioned(
@@ -832,68 +1195,94 @@ class _CertificateSideAccent extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [AppColors.blue, AppColors.purpleLight],
+                  colors: [
+                    AppColors.certificateAccent,
+                    AppColors.purpleLight,
+                  ],
                 ),
               ),
             ),
           ),
           const Positioned.fill(child: _CertificateStripePatternOverlay()),
           Positioned.fill(
-            child: _certificatePreviewColumn(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-              children: _withPreviewGaps([
-                Text(
-                  'Certificate',
-                  style: AppTypography.custom(
-                    fontSize: 12,
-                    fontWeight: AppFonts.bold,
-                    color: AppColors.blue,
-                    letterSpacing: 3,
-                  ),
-                ),
-                Text(
-                  'PRIMEACADEMY',
-                  style: AppTypography.custom(
-                    fontSize: 11,
-                    fontWeight: AppFonts.bold,
-                    color: AppColors.primary,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                Container(
-                  height: 1,
-                  width: 32,
-                  color: AppColors.blue,
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.blue.withValues(alpha: 0.08),
-                        AppColors.purpleLight.withValues(alpha: 0.08),
-                      ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _certificateLatinText(
+                      'CERTIFICATE',
+                      style: _certificateLatinStyle(
+                        fontSize: 12,
+                        fontWeight: AppFonts.semibold,
+                        color: AppColors.certificateAccent,
+                        letterSpacing: 3,
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _CertificateQuoteText(
-                    text: 'أنت من الأبطال الذين يصنعون الفرق',
-                  ),
+                    const SizedBox(height: 6),
+                    _certificateLatinText(
+                      'PRIMEACADEMY',
+                      style: _certificateLatinStyle(
+                        fontSize: 11,
+                        fontWeight: AppFonts.bold,
+                        color: AppColors.primary,
+                        letterSpacing: 0.55,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 1,
+                      width: 32,
+                      color: AppColors.certificateAccent,
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.certificateBgSubtle,
+                            Colors.transparent,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _CertificateQuoteText(
+                        text: 'أنت من الأبطال الذين يصنعون الفرق',
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        studentName,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.custom(
+                          fontSize: 15,
+                          fontWeight: AppFonts.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    _teacherBlock(preview: true, teacherName: teacherName),
+                  ],
                 ),
-                Text(
-                  studentName,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.custom(
-                    fontSize: 15,
-                    fontWeight: AppFonts.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-                _teacherBlock(preview: true, teacherName: teacherName),
-              ]),
+              ),
             ),
           ),
         ],
@@ -902,99 +1291,152 @@ class _CertificateSideAccent extends StatelessWidget {
   }
 
   Widget _full() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.secondaryBg,
-        borderRadius: AppRadius.borderAuthForm,
-        boxShadow: const [
-          BoxShadow(color: Color(0x40000000), blurRadius: 24, offset: Offset(0, 8)),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              width: 8,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [AppColors.blue, AppColors.purpleLight],
+    return _certificateFullShell(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _CertificateFullMetrics(constraints.maxWidth);
+
+          return Container(
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.secondaryBg,
+              borderRadius: AppRadius.borderLg,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
                 ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(40, 32, 32, 32),
-            child: Column(
-              children: [
-                Text(
-                  'Certificate',
-                  style: TextStyle(
-                    color: AppColors.blue,
-                    fontSize: 40,
-                    letterSpacing: 6,
-                    fontWeight: AppFonts.semibold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'PRIMEACADEMY',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 24,
-                    letterSpacing: 2,
-                    fontWeight: AppFonts.semibold,
-                  ),
-                ),
-                Container(
-                  height: 2,
-                  width: 64,
-                  color: AppColors.blue,
-                  margin: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.blue.withValues(alpha: 0.08),
-                        AppColors.purpleLight.withValues(alpha: 0.08),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'أنت من الأبطال الذين يصنعون الفرق',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.yellow,
-                      fontSize: 24,
-                      fontWeight: AppFonts.semibold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  studentName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 32,
-                    fontWeight: AppFonts.semibold,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _teacherBlock(preview: false, teacherName: teacherName),
               ],
             ),
-          ),
-        ],
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 8,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppColors.certificateAccent,
+                          AppColors.purpleLight,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.05,
+                    child: CustomPaint(
+                      painter: _CertificateSideAccentStripePainter(),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: const Alignment(0.7, -0.3),
+                          radius: 0.8,
+                          colors: [
+                            AppColors.purpleLight,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    metrics.isMobile ? 40 : 48,
+                    metrics.isMobile ? 32 : 40,
+                    metrics.isMobile ? 32 : 40,
+                    metrics.isMobile ? 32 : 40,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _certificateFitLatin(
+                        'CERTIFICATE',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.sideAccentTitleSize,
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.certificateAccent,
+                          letterSpacing: 6,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 8 : 16),
+                      _certificateFitLatin(
+                        'PRIMEACADEMY',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.sideAccentBrandSize,
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.primary,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 2,
+                        width: 64,
+                        color: AppColors.certificateAccent,
+                      ),
+                      SizedBox(height: metrics.isMobile ? 24 : 32),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: metrics.isMobile ? 16 : 24,
+                          vertical: metrics.isMobile ? 12 : 16,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppColors.certificateBgSubtle,
+                              Colors.transparent,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: _certificateFullQuoteText(
+                          'أنت من الأبطال الذين يصنعون الفرق',
+                          fontSize: metrics.sideAccentQuoteSize,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 24 : 32),
+                      Text(
+                        studentName,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.custom(
+                          fontSize: metrics.sideAccentNameSize,
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 24 : 32),
+                      _teacherBlock(
+                        preview: false,
+                        compact: metrics.isMobile,
+                        teacherName: teacherName,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -1017,97 +1459,136 @@ class _CertificateHexagon extends StatelessWidget {
   }
 
   Widget _preview() {
-    return _previewShell(
+    // Web CertificateHexagon preview.
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
       margin: const EdgeInsets.all(4),
-      borderRadius: AppRadius.borderMd,
-      border: Border.all(color: AppColors.blue.withValues(alpha: 0.2)),
       clipBehavior: Clip.none,
+      decoration: BoxDecoration(
+        color: AppColors.secondaryBg,
+        borderRadius: AppRadius.borderMd,
+        border: Border.all(color: AppColors.certificateBorder),
+      ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
             top: -3,
             left: -3,
-            child: _hexDecoration(16, 0.3),
+            child: _hexDecoration(
+              size: 16,
+              opacity: 0.4,
+              colors: const [
+                AppColors.certificateAccent,
+                AppColors.purpleLight,
+              ],
+            ),
           ),
           Positioned(
             bottom: -3,
             right: -3,
-            child: _hexDecoration(20, 0.25),
+            child: _hexDecoration(
+              size: 20,
+              opacity: 0.35,
+              colors: const [
+                AppColors.purpleLight,
+                AppColors.certificateAccent,
+              ],
+            ),
           ),
           const Positioned.fill(child: _CertificateCenterRadialOverlay()),
           Positioned.fill(
-            child: _certificatePreviewColumn(
-              children: _withPreviewGaps([
-              Text(
-                'Certificate',
-                style: AppTypography.custom(
-                  fontSize: 12,
-                  fontWeight: AppFonts.bold,
-                  color: AppColors.blue,
-                  letterSpacing: 3,
-                ),
-              ),
-              Text(
-                'PRIMEACADEMY',
-                style: AppTypography.custom(
-                  fontSize: 11,
-                  fontWeight: AppFonts.bold,
-                  color: AppColors.primary,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.blue.withValues(alpha: 0.1),
-                      AppColors.purpleLight.withValues(alpha: 0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(60),
-                ),
-                child: _CertificateQuoteText(
-                  text: 'نُشيد باجتهادك ونتمنى لك دوام التفوق والنجاح',
-                  fontSize: 9,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '⟨',
-                    style: AppTypography.custom(
-                      fontSize: 11,
-                      color: AppColors.blue.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 90),
-                    child: Text(
-                      studentName,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.custom(
-                        fontSize: 14,
-                        fontWeight: AppFonts.bold,
-                        color: AppColors.primary,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _certificateLatinText(
+                      'CERTIFICATE',
+                      style: _certificateLatinStyle(
+                        fontSize: 12,
+                        fontWeight: AppFonts.semibold,
+                        color: AppColors.certificateAccent,
+                        letterSpacing: 3,
                       ),
                     ),
-                  ),
-                  Text(
-                    '⟩',
-                    style: AppTypography.custom(
-                      fontSize: 11,
-                      color: AppColors.blue.withValues(alpha: 0.6),
+                    const SizedBox(height: 4),
+                    _certificateLatinText(
+                      'PRIMEACADEMY',
+                      style: _certificateLatinStyle(
+                        fontSize: 11,
+                        fontWeight: AppFonts.bold,
+                        color: AppColors.primary,
+                        letterSpacing: 0.55,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 8,
+                      ),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.certificateBgSubtle,
+                            Colors.transparent,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.all(Radius.circular(60)),
+                      ),
+                      child: _CertificateQuoteText(
+                        text: 'نُشيد باجتهادك ونتمنى لك دوام التفوق والنجاح',
+                        fontSize: 9,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '⟨',
+                          style: _certificateLatinStyle(
+                            fontSize: 11,
+                            color: AppColors.certificateAccent
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 90),
+                          child: Text(
+                            studentName,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.custom(
+                              fontSize: 14,
+                              fontWeight: AppFonts.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '⟩',
+                          style: _certificateLatinStyle(
+                            fontSize: 11,
+                            color: AppColors.certificateAccent
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    _teacherBlock(preview: true, teacherName: teacherName),
+                  ],
+                ),
               ),
-              _teacherBlock(preview: true, teacherName: teacherName),
-            ]),
             ),
           ),
         ],
@@ -1116,98 +1597,170 @@ class _CertificateHexagon extends StatelessWidget {
   }
 
   Widget _full() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.secondaryBg,
-        borderRadius: AppRadius.borderAuthForm,
-        border: Border.all(color: AppColors.blue.withValues(alpha: 0.2)),
-        boxShadow: const [
-          BoxShadow(color: Color(0x40000000), blurRadius: 24, offset: Offset(0, 8)),
-        ],
-      ),
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        children: [
-          Text(
-            'Certificate',
-            style: TextStyle(
-              color: AppColors.blue,
-              fontSize: 40,
-              letterSpacing: 6,
-              fontWeight: AppFonts.semibold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'PRIMEACADEMY',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontSize: 24,
-              fontWeight: AppFonts.semibold,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+    return _certificateFullShell(
+      constraints: const BoxConstraints(maxWidth: 768),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _CertificateFullMetrics(constraints.maxWidth);
+
+          return Container(
+            width: double.infinity,
+            clipBehavior: Clip.none,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.blue.withValues(alpha: 0.1),
-                  AppColors.purpleLight.withValues(alpha: 0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(60),
+              color: AppColors.secondaryBg,
+              borderRadius: AppRadius.borderLg,
+              border: Border.all(color: AppColors.certificateBorder),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
+                ),
+              ],
             ),
-            child: const Text(
-              'نُشيد باجتهادك ونتمنى لك دوام التفوق والنجاح',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.yellow,
-                fontSize: 24,
-                fontWeight: AppFonts.semibold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('⟨', style: TextStyle(color: AppColors.blue.withValues(alpha: 0.5), fontSize: 32)),
-              Flexible(
-                child: Text(
-                  studentName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 32,
-                    fontWeight: AppFonts.semibold,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  top: -16,
+                  left: -16,
+                  child: _hexDecoration(
+                    size: 48,
+                    opacity: 0.2,
+                    colors: const [
+                      AppColors.certificateAccent,
+                      AppColors.purpleLight,
+                    ],
                   ),
                 ),
-              ),
-              Text('⟩', style: TextStyle(color: AppColors.blue.withValues(alpha: 0.5), fontSize: 32)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _teacherBlock(preview: false, teacherName: teacherName),
-        ],
+                Positioned(
+                  bottom: -16,
+                  right: -16,
+                  child: _hexDecoration(
+                    size: 64,
+                    opacity: 0.15,
+                    colors: const [
+                      AppColors.purpleLight,
+                      AppColors.certificateAccent,
+                    ],
+                  ),
+                ),
+                const Positioned.fill(child: _CertificateCenterRadialOverlay()),
+                Padding(
+                  padding: EdgeInsets.all(metrics.isMobile ? 32 : 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _certificateFitLatin(
+                        'CERTIFICATE',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.hexTitleSize,
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.certificateAccent,
+                          letterSpacing: 6,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 8 : 16),
+                      _certificateFitLatin(
+                        'PRIMEACADEMY',
+                        style: _certificateLatinStyle(
+                          fontSize: metrics.hexBrandSize,
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.primary,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 24 : 32),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: metrics.isMobile ? 24 : 32,
+                          vertical: metrics.isMobile ? 16 : 20,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppColors.certificateBgSubtle,
+                              Colors.transparent,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(60),
+                        ),
+                        child: _certificateFullQuoteText(
+                          'نُشيد باجتهادك ونتمنى لك دوام التفوق والنجاح',
+                          fontSize: metrics.hexQuoteSize,
+                        ),
+                      ),
+                      SizedBox(height: metrics.isMobile ? 24 : 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '⟨',
+                            style: _certificateLatinStyle(
+                              fontSize: metrics.hexBracketSize,
+                              color: AppColors.certificateAccent.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Flexible(
+                            child: Text(
+                              studentName,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.custom(
+                                fontSize: metrics.hexNameSize,
+                                fontWeight: AppFonts.semibold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            '⟩',
+                            style: _certificateLatinStyle(
+                              fontSize: metrics.hexBracketSize,
+                              color: AppColors.certificateAccent.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: metrics.isMobile ? 32 : 40),
+                      _teacherBlock(
+                        preview: false,
+                        compact: metrics.isMobile,
+                        teacherName: teacherName,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-Widget _hexDecoration(double size, double opacity) {
-  return ClipPath(
-    clipper: _HexagonClipper(),
-    child: Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.blue.withValues(alpha: opacity),
-            AppColors.purpleLight.withValues(alpha: opacity),
-          ],
+Widget _hexDecoration({
+  required double size,
+  required double opacity,
+  required List<Color> colors,
+}) {
+  return Opacity(
+    opacity: opacity,
+    child: ClipPath(
+      clipper: _HexagonClipper(),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
+          ),
         ),
       ),
     ),
@@ -1224,12 +1777,61 @@ TextStyle _certificateQuotePreviewStyle([double fontSize = 12]) =>
       height: 1.625,
     );
 
+/// Web premium quote box: my-1 py-3 px-4 rounded-xl + left/right borders.
+Widget _webPremiumQuotePreview(String text) {
+  return Container(
+    margin: const EdgeInsets.symmetric(vertical: 4),
+    constraints: const BoxConstraints(minWidth: 180, maxWidth: 240),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.shadcnLg),
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.certificateBgSubtle,
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: ColoredBox(
+              color: AppColors.certificateAccent,
+              child: SizedBox(width: 3),
+            ),
+          ),
+          const Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: ColoredBox(
+              color: AppColors.purpleLight,
+              child: SizedBox(width: 3),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: _CertificateQuoteText(text: text, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 Widget _certificatePremiumQuoteBox(String text, {double fontSize = 12}) {
   final isPreview = fontSize <= 12;
   final compact = fontSize <= 16;
 
   final verticalMargin = isPreview ? 4.0 : (compact ? 12.0 : 24.0);
-  final verticalPadding = isPreview ? 12.0 : (compact ? 14.0 : 20.0);
+  final verticalPadding = isPreview ? 10.0 : (compact ? 14.0 : 20.0);
   const horizontalPadding = 16.0;
 
   return Container(
@@ -1244,7 +1846,7 @@ Widget _certificatePremiumQuoteBox(String text, {double fontSize = 12}) {
             horizontal: horizontalPadding,
             vertical: verticalPadding,
           ),
-          child: _CertificateQuoteText(text: text, fontSize: fontSize),
+          child: _certificateFitQuote(text, fontSize: fontSize),
         ),
       ),
     ),
@@ -1377,75 +1979,16 @@ class _CertificateQuoteText extends StatelessWidget {
   Widget build(BuildContext context) {
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-      child: SizedBox(
-        width: double.infinity,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.center,
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.rtl,
-            maxLines: 1,
-            softWrap: false,
-            style: _certificateQuotePreviewStyle(fontSize),
-          ),
-        ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.rtl,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: _certificateQuotePreviewStyle(fontSize),
       ),
     );
   }
-}
-
-List<Widget> _withPreviewGaps(List<Widget> children) {
-  if (children.isEmpty) return children;
-  final spaced = <Widget>[];
-  for (var i = 0; i < children.length; i++) {
-    if (i > 0) spaced.add(const SizedBox(height: 6));
-    spaced.add(children[i]);
-  }
-  return spaced;
-}
-
-Widget _certificatePreviewColumn({
-  required List<Widget> children,
-  EdgeInsetsGeometry padding = const EdgeInsets.all(4),
-}) {
-  return Padding(
-    padding: padding,
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 240),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _previewShell({
-  required Widget child,
-  BorderRadius borderRadius = AppRadius.borderMd,
-  Border? border,
-  EdgeInsetsGeometry? padding,
-  EdgeInsetsGeometry? margin,
-  Clip clipBehavior = Clip.hardEdge,
-}) {
-  return Container(
-    width: double.infinity,
-    height: double.infinity,
-    margin: margin,
-    padding: padding,
-    clipBehavior: clipBehavior,
-    decoration: BoxDecoration(
-      color: AppColors.secondaryBg,
-      borderRadius: borderRadius,
-      border: border,
-    ),
-    child: child,
-  );
 }
 
 Widget _cornerRadialGlow(Color color, Alignment alignment) {
@@ -1520,7 +2063,7 @@ class _CertificateCenterRadialOverlay extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: RadialGradient(
             colors: [
-              AppColors.blue,
+              AppColors.certificateAccent,
               Colors.transparent,
             ],
           ),
@@ -1548,7 +2091,7 @@ class _CertificateStripePatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.blue
+      ..color = AppColors.certificateAccent
       ..strokeWidth = 0.5;
 
     const spacing = 10.0;
@@ -1557,6 +2100,27 @@ class _CertificateStripePatternPainter extends CustomPainter {
       canvas.drawLine(
         Offset(offset, 0),
         Offset(offset + size.height, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _CertificateSideAccentStripePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.certificateAccent
+      ..strokeWidth = 1;
+
+    const spacing = 20.0;
+    for (var i = -size.height; i < size.width + size.height; i += spacing) {
+      canvas.drawLine(
+        Offset(i.toDouble(), 0),
+        Offset(i + size.height, size.height),
         paint,
       );
     }
@@ -1617,25 +2181,45 @@ Widget _teacherBlock({
   final nameSize = preview ? 10.0 : (compact ? 14.0 : 20.0);
   final labelTracking = preview ? 2.0 : (compact ? 3.0 : 5.0);
 
+  final label = _certificateLatinText(
+    'CLASS TEACHER',
+    style: _certificateLatinStyle(
+      fontSize: labelSize,
+      fontWeight: AppFonts.regular,
+      color: AppColors.textMuted.withValues(alpha: preview ? 0.8 : 1),
+      letterSpacing: labelTracking,
+    ),
+    maxLines: 1,
+    softWrap: false,
+  );
+
   return Column(
     mainAxisSize: MainAxisSize.min,
     children: [
-      _certificateLatinText(
-        'CLASS TEACHER',
-        style: _certificateLatinStyle(
-          fontSize: labelSize,
-          fontWeight: AppFonts.regular,
-          color: AppColors.textMuted.withValues(alpha: preview ? 0.8 : 1),
-          letterSpacing: labelTracking,
+      if (preview)
+        label
+      else
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: UnconstrainedBox(child: label),
+          ),
         ),
-      ),
-      Text(
-        teacherName,
-        textAlign: TextAlign.center,
-        style: AppTypography.custom(
-          fontSize: nameSize,
-          fontWeight: AppFonts.medium,
-          color: AppColors.primary.withValues(alpha: preview ? 1 : 0.95),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: UnconstrainedBox(
+          child: Text(
+            teacherName,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            softWrap: false,
+            style: AppTypography.custom(
+              fontSize: nameSize,
+              fontWeight: AppFonts.medium,
+              color: AppColors.primary.withValues(alpha: preview ? 1 : 0.95),
+            ),
+          ),
         ),
       ),
     ],

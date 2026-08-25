@@ -13,7 +13,7 @@ void main() {
     await tester.tap(find.text('تخطي'));
     await tester.pumpAndSettle();
 
-    expect(find.text('مرحباً بك مجدداً'), findsOneWidget);
+    expect(find.text('مرحباً بك يابطل'), findsOneWidget);
     expect(find.text('تسجيل الدخول'), findsOneWidget);
     expect(find.text('الكويت'), findsOneWidget);
   });

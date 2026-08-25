@@ -45,11 +45,6 @@ class ClassificationCharGlow extends StatelessWidget {
               height: size * 0.37,
             ),
           ),
-          Positioned(
-            left: (size - (size * 0.72)) / 2 + imageOffsetX,
-            top: (size - (size * 0.72)) / 2,
-            child: _GlowRing(size: size * 0.72),
-          ),
           DecoratedBox(
             decoration: const BoxDecoration(
               boxShadow: [
@@ -98,32 +93,6 @@ class _GlowBlob extends StatelessWidget {
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-}
-
-class _GlowRing extends StatelessWidget {
-  const _GlowRing({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF62A3F0).withValues(alpha: 0.18),
-              width: 10,
-            ),
-          ),
         ),
       ),
     );

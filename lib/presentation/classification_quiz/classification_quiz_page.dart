@@ -18,6 +18,7 @@ import 'widgets/classification_confirm_button.dart';
 import 'widgets/classification_empty_state.dart';
 import 'widgets/classification_fill_blank_view.dart';
 import 'widgets/classification_finished_state.dart';
+import 'widgets/classification_level_up_overlay.dart';
 import 'widgets/classification_lottie_overlay.dart';
 import 'widgets/classification_matching_view.dart';
 import 'widgets/classification_mcq_view.dart';
@@ -67,6 +68,7 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
   var _canSubmit = false;
   VoidCallback? _submitHandler;
   var _matchingDragActive = false;
+  ClassificationLevel? _levelUpLevel;
 
   ClassificationLevel? _currentLevel;
   List<ClassificationLevel> _levels = const [];
@@ -277,8 +279,11 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
       if (!mounted) return;
 
       if (result.level != null && result.level!.title != _level.title) {
-        unawaited(ClassificationSounds.playLevelUp());
-        setState(() => _currentLevel = QuizUiMapper.toUiLevel(result.level!));
+        final newLevel = QuizUiMapper.toUiLevel(result.level!);
+        setState(() {
+          _currentLevel = newLevel;
+          _levelUpLevel = newLevel;
+        });
       }
 
       setState(() => _answeredCount++);
@@ -399,37 +404,6 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
     );
   }
 
-  Widget _buildShellPanel(BuildContext context, Widget child) {
-    final wide = MediaQuery.sizeOf(context).width >= 960;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1280),
-          child: Container(
-            width: double.infinity,
-            margin: EdgeInsets.only(top: wide ? 20 : 0),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppColors.mainBg2, AppColors.mainBg],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              borderRadius: wide
-                  ? BorderRadius.circular(16)
-                  : BorderRadius.zero,
-              boxShadow: AppShadows.shadow2xl,
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -453,43 +427,47 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
                   Column(
                     children: [
                       if (_phase == _ClassificationPhase.inProgress)
-                        ClassificationProgressBar(
-                          current: _index + 1,
-                          total: _questions.length,
+                        SafeArea(
+                          bottom: false,
+                          minimum: const EdgeInsets.only(top: 8),
+                          child: ClassificationProgressBar(
+                            current: _index + 1,
+                            total: _questions.length,
+                          ),
                         ),
                       Expanded(
                         child: switch (_phase) {
-                          _ClassificationPhase.ready => _buildShellPanel(
-                            context,
-                            ClassificationReadyState(
-                              currentLevel: _level,
-                              totalQuestions: _attempt?.questionsCount ??
-                                  _questions.length,
-                              answeredQuestions: _answeredCount,
-                              isContinue: _attempt?.status == 'continued',
-                              onStart: _start,
-                            ),
+                          _ClassificationPhase.ready => ClassificationReadyState(
+                            currentLevel: _level,
+                            totalQuestions: _attempt?.questionsCount ??
+                                _questions.length,
+                            answeredQuestions: _answeredCount,
+                            isContinue: _attempt?.status == 'continued',
+                            onStart: _start,
                           ),
                           _ClassificationPhase.inProgress =>
                             _buildInProgressBody(context),
-                          _ClassificationPhase.finished => _buildShellPanel(
-                            context,
+                          _ClassificationPhase.finished =>
                             ClassificationFinishedState(
                               currentLevel: _level,
                               onExit: () => context.pop(true),
                             ),
-                          ),
-                          _ClassificationPhase.empty => _buildShellPanel(
-                            context,
-                            ClassificationEmptyState(
-                              onExit: () => context.pop(),
-                            ),
+                          _ClassificationPhase.empty => ClassificationEmptyState(
+                            onExit: () => context.pop(),
                           ),
                           _ => const SizedBox.shrink(),
                         },
                       ),
                     ],
                   ),
+                  if (_levelUpLevel != null)
+                    ClassificationLevelUpOverlay(
+                      level: _levelUpLevel!,
+                      onDone: () {
+                        if (!mounted) return;
+                        setState(() => _levelUpLevel = null);
+                      },
+                    ),
                   if (_phase == _ClassificationPhase.inProgress) ...[
                     ClassificationLottieOverlay(
                       trigger: _lottieTrigger,

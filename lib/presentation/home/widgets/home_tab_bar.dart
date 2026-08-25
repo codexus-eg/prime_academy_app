@@ -40,7 +40,7 @@ class HomeTabBar extends StatelessWidget {
         width: barWidth,
         child: DecoratedBox(
           decoration: ShapeDecoration(
-            color: AppColors.mainBg3,
+            color: AppColors.mainBg2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadius.smPlus),
             ),

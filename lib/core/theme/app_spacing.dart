@@ -54,6 +54,16 @@ abstract final class AppSpacing {
   static const double navDesktopPadding = 150;
   static const double navMobilePadding = pageContentHorizontal;
 
+  /// Web `MobileNav`: `pt-2.5 pb-5 px-4 gap-3` on small screens.
+  static const double mobileNavTopPadding = smPlus;
+  static const double mobileNavBottomPadding = lg;
+  static const double mobileNavItemGap = md;
+  static const double mobileNavMenuIconSize = lgPlus;
+  static const double mobileNavLogoWidth = 120;
+  static const double mobileNavFlagSize = base;
+  static const double mobileNavBellMobileScale = 0.8;
+  static const double mobileNavBellDesktopScale = 1.0;
+
   static const double courseCardWidth = 280;
 
   static const double courseCardProfileHeight = 280;
@@ -208,6 +218,24 @@ abstract final class AppSpacing {
 
   static const double lessonActionHeight = 36;
 
+  /// Web chat/files `height: 150`.
+  static const double lessonChatFilesHeaderHeight = 150;
+
+  /// Web `h-17 w-17` (4.25rem).
+  static const double lessonChatAvatarSize = 68;
+
+  /// Web `min-w-62.5` (15.625rem).
+  static const double lessonChatBubbleMinWidth = 250;
+
+  /// Web message `max-h-64`.
+  static const double lessonChatMediaMaxHeight = 256;
+
+  /// Web `MessageTextarea` / recording bar `h-[40px]`.
+  static const double lessonChatInputHeight = 40;
+
+  /// Web messages container `gap-6`.
+  static const double lessonChatMessageGap = 24;
+
   static const double profileSectionGap = base;
 
   static const double profileReportsSectionGap = xl;
@@ -225,6 +253,9 @@ abstract final class AppSpacing {
   static const double awardsContainerMaxWidth = 780;
 
   static const double awardsImageSize = 192;
+
+  /// Web `md:w-54.5` (13.625rem).
+  static const double awardsImageSizeMd = 218;
 
   static const double awardsCarouselGap = xl;
 
@@ -297,8 +328,8 @@ abstract final class AppSpacing {
 
   static const double tabIncompleteDotInset = xsPlus;
 
-  static const double notificationBellIconWidth = 20;
-  static const double notificationBellIconHeight = 21;
+  static const double notificationBellIconWidth = 18;
+  static const double notificationBellIconHeight = 18;
 
   static const double notificationPanelWidth = 300;
   static const double notificationPanelHeight = 400;

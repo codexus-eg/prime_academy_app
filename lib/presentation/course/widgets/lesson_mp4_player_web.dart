@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import '../../../core/theme/app_radius.dart';
+import '../../../core/utils/lesson_playback_tracker.dart';
 import '../../../core/utils/video_progress.dart';
-import '../../../data/auth/auth_session.dart';
-import '../../../data/courses/courses_api.dart';
+import 'lesson_video_chrome.dart';
 import 'lesson_video_fullscreen.dart';
 
 class LessonMp4Player extends StatefulWidget {
@@ -36,31 +36,47 @@ class LessonMp4Player extends StatefulWidget {
 }
 
 class _LessonMp4PlayerState extends State<LessonMp4Player> {
-  static const _syncInterval = Duration(seconds: 10);
+  static const _autoHide = Duration(seconds: 3);
 
   late final String _viewType;
+  late final LessonPlaybackTracker _tracker;
+  late final StallWatch _stall;
   web.HTMLVideoElement? _video;
-  Timer? _syncTimer;
-  var _canTrack = false;
+
+  Timer? _hideTimer;
+  var _started = false;
+  var _playing = false;
+  var _buffering = false;
+  var _controlsVisible = true;
+  var _seeking = false;
+  var _muted = false;
+  var _rate = 1.0;
   var _hasResumed = false;
   var _hasEnded = false;
-  var _lastSyncedSeconds = -1;
-  var _isFullscreen = false;
-  var _hasError = false;
+  var _loading = true;
+  String? _error;
+  double _seekValue = 0;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _viewType = 'lesson-mp4-${identityHashCode(this)}';
-    _resolveTracking();
+    _tracker = LessonPlaybackTracker(
+      lessonId: widget.lessonId,
+      onWatched: widget.onWatched,
+    );
+    _stall = StallWatch(thresholdSeconds: 120, onStall: _reload)..start();
+    unawaited(_tracker.resolve());
 
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
       final video = web.HTMLVideoElement()
         ..src = widget.videoUrl
-        ..controls = true
+        ..controls = false
         ..preload = 'metadata'
-        ..setAttribute('controlsList', 'nodownload')
-        ..setAttribute('playsinline', 'true');
+        ..setAttribute('playsinline', 'true')
+        ..setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback');
 
       video.style
         ..border = 'none'
@@ -68,88 +84,118 @@ class _LessonMp4PlayerState extends State<LessonMp4Player> {
         ..height = '100%'
         ..display = 'block'
         ..backgroundColor = '#000'
-        ..borderRadius = '${AppRadius.tailwindXl}px';
+        ..borderRadius = '${AppRadius.tailwindXl}px'
+        ..pointerEvents = 'none';
       video.style.setProperty('object-fit', 'contain');
 
       final poster = widget.thumbnailUrl;
-      if (poster != null && poster.isNotEmpty) {
-        video.poster = poster;
-      }
+      if (poster != null && poster.isNotEmpty) video.poster = poster;
 
       _video = video;
-
-      video.addEventListener(
-        'fullscreenchange',
-        ((web.Event _) => _syncFullscreenState()).toJS,
-      );
-      video.addEventListener(
-        'canplay',
-        ((web.Event _) {
-          if (mounted) setState(() => _hasError = false);
-          _maybeResume();
-        }).toJS,
-      );
-      video.addEventListener(
-        'error',
-        ((web.Event _) {
-          if (mounted) setState(() => _hasError = true);
-        }).toJS,
-      );
-      video.addEventListener(
-        'timeupdate',
-        ((web.Event _) => _onTimeUpdate()).toJS,
-      );
-      video.addEventListener(
-        'pause',
-        ((web.Event _) {
-          unawaited(_syncProgress());
-        }).toJS,
-      );
-      video.addEventListener(
-        'ended',
-        ((web.Event _) {
-          if (!_hasEnded) {
-            _hasEnded = true;
-            unawaited(_syncProgress());
-            widget.onPlaybackEnded?.call();
-          }
-        }).toJS,
-      );
-      video.addEventListener(
-        'play',
-        ((web.Event _) => _startSyncTimer()).toJS,
-      );
-
+      _bind(video);
       return video;
     });
+  }
+
+  void _bind(web.HTMLVideoElement video) {
+    video.addEventListener(
+      'canplay',
+      ((web.Event _) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _error = null;
+          _duration = _durationOf(video);
+        });
+        _maybeResume();
+        video.playbackRate = _rate;
+        video.muted = _muted;
+      }).toJS,
+    );
+    video.addEventListener(
+      'waiting',
+      ((web.Event _) {
+        if (mounted) setState(() => _buffering = true);
+      }).toJS,
+    );
+    video.addEventListener(
+      'playing',
+      ((web.Event _) {
+        if (mounted) setState(() => _buffering = false);
+      }).toJS,
+    );
+    video.addEventListener(
+      'error',
+      ((web.Event _) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _error = 'تعذّر تشغيل الفيديو. تحقّق من الاتصال أو أعد المحاولة.';
+          });
+        }
+      }).toJS,
+    );
+    video.addEventListener(
+      'timeupdate',
+      ((web.Event _) => _onTimeUpdate()).toJS,
+    );
+    video.addEventListener(
+      'play',
+      ((web.Event _) {
+        _playing = true;
+        _started = true;
+        _tracker.onPlay();
+        _stall.setPlaying(true);
+        _scheduleHide();
+        if (mounted) setState(() {});
+      }).toJS,
+    );
+    video.addEventListener(
+      'pause',
+      ((web.Event _) {
+        _playing = false;
+        _tracker.onPause();
+        _stall.setPlaying(false);
+        _hideTimer?.cancel();
+        _controlsVisible = true;
+        if (mounted) setState(() {});
+      }).toJS,
+    );
+    video.addEventListener(
+      'ended',
+      ((web.Event _) {
+        if (_hasEnded) return;
+        _hasEnded = true;
+        unawaited(_tracker.sync());
+        widget.onPlaybackEnded?.call();
+      }).toJS,
+    );
   }
 
   @override
   void didUpdateWidget(covariant LessonMp4Player oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.videoUrl != widget.videoUrl) {
-      final video = _video;
-      if (video != null) {
-        _hasResumed = false;
-        _hasEnded = false;
-        _lastSyncedSeconds = -1;
-        setState(() => _hasError = false);
-        video.src = widget.videoUrl;
-        final poster = widget.thumbnailUrl;
-        if (poster != null && poster.isNotEmpty) {
-          video.poster = poster;
-        }
-        video.load();
-      }
-    }
+    if (oldWidget.videoUrl == widget.videoUrl) return;
+    final video = _video;
+    if (video == null) return;
+    _hasResumed = false;
+    _hasEnded = false;
+    _started = false;
+    _playing = false;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    video.src = widget.videoUrl;
+    final poster = widget.thumbnailUrl;
+    if (poster != null && poster.isNotEmpty) video.poster = poster;
+    video.load();
   }
 
-  Future<void> _resolveTracking() async {
-    if (widget.lessonId == null) return;
-    final user = await AuthSession.load();
-    if (mounted && user?.role == 1) {
-      setState(() => _canTrack = true);
-    }
+  Duration _durationOf(web.HTMLVideoElement video) {
+    final seconds = video.duration;
+    if (!seconds.isFinite || seconds <= 0) return Duration.zero;
+    return Duration(milliseconds: (seconds * 1000).round());
   }
 
   void _maybeResume() {
@@ -157,116 +203,170 @@ class _LessonMp4PlayerState extends State<LessonMp4Player> {
     if (video == null || _hasResumed || widget.initialPositionSeconds <= 0) {
       return;
     }
-
     final duration = video.duration.isFinite ? video.duration.round() : 0;
     final safe = VideoProgress.clampResumePosition(
       widget.initialPositionSeconds,
       duration,
     );
-    if (safe <= 0) return;
-
     _hasResumed = true;
-    video.currentTime = safe.toDouble();
+    if (safe > 0) video.currentTime = safe.toDouble();
   }
 
   void _onTimeUpdate() {
     final video = _video;
-    if (video == null) return;
+    if (video == null || !mounted || _seeking) return;
     final duration = video.duration;
     if (!duration.isFinite || duration <= 0) return;
-
-    final pct = ((video.currentTime / duration) * 100).clamp(0, 100).round();
+    final current = video.currentTime;
+    final pct = ((current / duration) * 100).clamp(0, 100).round();
     widget.onProgressUpdate?.call(pct);
+    _tracker.update(seconds: current.round(), duration: duration.round());
+    _stall.reportTime(current);
+    setState(() {
+      _position = Duration(milliseconds: (current * 1000).round());
+      _duration = Duration(milliseconds: (duration * 1000).round());
+    });
   }
 
-  void _startSyncTimer() {
-    _syncTimer ??= Timer.periodic(_syncInterval, (_) => _syncProgress());
-  }
-
-  Future<void> _syncProgress() async {
-    if (!_canTrack) return;
+  void _reload() {
     final video = _video;
-    final lessonId = widget.lessonId;
-    if (video == null || lessonId == null) return;
+    if (video == null) return;
+    final position = video.currentTime;
+    setState(() {
+      _error = null;
+      _loading = true;
+      _hasEnded = false;
+    });
+    video.load();
+    video.addEventListener(
+      'canplay',
+      ((web.Event _) {
+        if (position > 0) video.currentTime = position;
+      }).toJS,
+    );
+  }
 
-    final seconds = video.currentTime.round();
-    if (seconds == _lastSyncedSeconds) return;
-    _lastSyncedSeconds = seconds;
-
-    try {
-      final watched = await CoursesApi.saveVideoProgress(
-        lessonId: lessonId,
-        progressSeconds: seconds,
+  void _togglePlay() {
+    final video = _video;
+    if (video == null) return;
+    setState(() => _started = true);
+    if (_playing) {
+      video.pause();
+    } else {
+      unawaited(
+        video.play().toDart.then((_) {}, onError: (_) {}),
       );
-      if (watched) widget.onWatched?.call();
-    } catch (_) {}
+    }
+    _showControls();
   }
 
-  void _syncFullscreenState() {
+  void _toggleMute() {
     final video = _video;
-    if (video == null || !mounted) return;
-    final active = isElementFullscreen(video);
-    if (active != _isFullscreen) {
-      setState(() => _isFullscreen = active);
+    if (video == null) return;
+    setState(() => _muted = !_muted);
+    video.muted = _muted;
+    video.volume = _muted ? 0 : 1;
+    _showControls();
+  }
+
+  void _setRate(double rate) {
+    final video = _video;
+    if (video == null) return;
+    setState(() => _rate = rate);
+    video.playbackRate = rate;
+    _showControls();
+  }
+
+  void _toggleControls() {
+    if (_controlsVisible) {
+      _hideTimer?.cancel();
+      setState(() => _controlsVisible = false);
+    } else {
+      _showControls();
     }
+  }
+
+  void _showControls() {
+    setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    if (!_playing) return;
+    _hideTimer = Timer(_autoHide, () {
+      if (mounted && _playing && !_seeking) {
+        setState(() => _controlsVisible = false);
+      }
+    });
   }
 
   Future<void> _toggleFullscreen() async {
-    final video = _video;
-    if (video == null) return;
-
-    if (_isFullscreen) {
+    if (isBrowserFullscreen) {
       await exitBrowserFullscreen();
-      return;
+    } else {
+      await enterBrowserFullscreen();
     }
-
-    await requestWebElementFullscreen(video);
-    _syncFullscreenState();
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _syncTimer?.cancel();
+    _hideTimer?.cancel();
+    _stall.dispose();
+    _tracker.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            HtmlElementView(viewType: _viewType),
-            if (_hasError)
-              const ColoredBox(
-                color: Color(0xCC000000),
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'تعذّر تشغيل الفيديو. تحقّق من الاتصال أو أعد المحاولة.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ),
-                ),
-              ),
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: LessonVideoFullscreenButton(
-                isFullscreen: _isFullscreen,
-                onPressed: () => unawaited(_toggleFullscreen()),
-              ),
-            ),
-          ],
-        ),
+    return LessonVideoPlayerShell(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          HtmlElementView(viewType: _viewType),
+          LessonVideoChrome(
+            started: _started,
+            playing: _playing,
+            buffering: _buffering,
+            loading: _loading,
+            controlsVisible: _controlsVisible,
+            isFullscreen: isBrowserFullscreen,
+            muted: _muted,
+            playbackRate: _rate,
+            position: _position,
+            duration: _duration,
+            seeking: _seeking,
+            seekValue: _seekValue,
+            thumbnailUrl: _started ? null : widget.thumbnailUrl,
+            errorMessage: _error,
+            onRetry: _reload,
+            onTogglePlay: _togglePlay,
+            onToggleControls: _toggleControls,
+            onToggleMute: _toggleMute,
+            onRateChanged: _setRate,
+            onFullscreen: () => unawaited(_toggleFullscreen()),
+            onSeekStart: (v) {
+              _hideTimer?.cancel();
+              setState(() {
+                _seeking = true;
+                _seekValue = v;
+              });
+            },
+            onSeekChanged: (v) => setState(() => _seekValue = v),
+            onSeekEnd: (v) {
+              final video = _video;
+              if (video != null) video.currentTime = v;
+              setState(() {
+                _seeking = false;
+                _hasEnded = false;
+                _position = Duration(milliseconds: (v * 1000).round());
+              });
+              unawaited(_tracker.sync());
+              _scheduleHide();
+            },
+          ),
+        ],
       ),
     );
   }

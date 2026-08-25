@@ -216,6 +216,7 @@ class _LuckActiveQuestionState extends State<LuckActiveQuestion> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           LuckQuizTimer(
+                            key: ValueKey('luck-timer-${widget.question.id}'),
                             seconds: widget.timerSeconds,
                             totalSeconds: widget.totalTimerSeconds,
                             visible: widget.showTimer && !widget.answered,

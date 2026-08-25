@@ -18,7 +18,7 @@ class IncompleteTasksCourseHeader extends StatelessWidget {
 
   final String courseLabel;
   final int taskCount;
-  final VoidCallback? onCourseTap;
+  final void Function(BuildContext triggerContext)? onCourseTap;
 
   static const double _rowHeight = 48;
 
@@ -51,7 +51,7 @@ class _CourseSelectTrigger extends StatefulWidget {
   });
 
   final String label;
-  final VoidCallback? onTap;
+  final void Function(BuildContext triggerContext)? onTap;
 
   @override
   State<_CourseSelectTrigger> createState() => _CourseSelectTriggerState();
@@ -77,7 +77,9 @@ class _CourseSelectTriggerState extends State<_CourseSelectTrigger> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: widget.onTap == null
+                ? null
+                : () => widget.onTap!(context),
             borderRadius: AppRadius.borderRankingCard,
             child: Ink(
               padding: const EdgeInsetsDirectional.symmetric(

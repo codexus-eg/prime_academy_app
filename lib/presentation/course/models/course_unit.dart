@@ -29,29 +29,12 @@ class CourseDetail {
     required this.id,
     required this.title,
     required this.units,
+    this.isEnrolled = false,
   });
 
   final String id;
   final String title;
   final List<CourseUnit> units;
+  final bool isEnrolled;
 }
 
-class LessonContext {
-  const LessonContext({
-    required this.courseId,
-    required this.courseTitle,
-    required this.unitId,
-    required this.unitTitle,
-    required this.lesson,
-    required this.unitLessons,
-    required this.unitProgressPercent,
-  });
-
-  final String courseId;
-  final String courseTitle;
-  final String unitId;
-  final String unitTitle;
-  final CourseLesson lesson;
-  final List<CourseLesson> unitLessons;
-  final int unitProgressPercent;
-}

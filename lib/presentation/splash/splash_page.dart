@@ -7,7 +7,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../data/auth/auth_service.dart';
-import '../home/home_page.dart';
+import '../../data/students/home_bootstrap.dart';
+import '../home/widgets/notification_navigator.dart';
 import '../onboarding/onboarding_page.dart';
 import 'data/splash_frames.dart';
 
@@ -31,24 +32,44 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _runSequence() async {
+    var restored = false;
+    await Future.wait<void>([
+      _playAnimation(),
+      _bootstrapSessionAndAssets().then((value) => restored = value),
+    ]);
+    if (!mounted) return;
+
+    if (restored) {
+      await NotificationNavigator.openAfterAuth(context);
+      return;
+    }
+
+    context.go(OnboardingPage.routePath);
+  }
+
+  Future<void> _playAnimation() async {
     for (var i = 1; i < SplashFrames.frames.length; i++) {
       await Future<void>.delayed(SplashFrames.frameInterval);
       if (!mounted) return;
       setState(() => _frameIndex = i);
     }
-
     await Future<void>.delayed(SplashFrames.frameInterval);
-    if (!mounted) return;
+  }
+
+  /// Restore the session and warm home images before leaving splash.
+  Future<bool> _bootstrapSessionAndAssets() async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return false;
 
     final restored = await AuthService.restoreSession();
-    if (!mounted) return;
+    if (!restored || !mounted) return restored;
 
-    if (restored) {
-      context.go('${HomePage.routePath}/courses');
-      return;
+    try {
+      await HomeBootstrap.warm(context);
+    } catch (_) {
+      // Home will fetch if splash warmup fails.
     }
-
-    context.go(OnboardingPage.routePath);
+    return true;
   }
 
   @override

@@ -139,11 +139,56 @@ class _NetworkImageWithFallbackState extends State<_NetworkImageWithFallback> {
       size: 28,
     );
 
+    final fillsParent =
+        widget.fit == BoxFit.cover || widget.fit == BoxFit.fill;
+
+    Widget image;
     if (url.toLowerCase().contains('.avif')) {
-      return AvifImage.network(
+      image = AvifImage.network(
         url,
         fit: widget.fit,
+        width: fillsParent ? double.infinity : null,
+        height: fillsParent ? double.infinity : null,
         gaplessPlayback: true,
+        errorBuilder: (_, _, _) {
+          if (_index < widget.urls.length - 1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _tryNext();
+            });
+            return const SizedBox.shrink();
+          }
+          return error;
+        },
+      );
+    } else {
+      image = Image.network(
+        url,
+        fit: widget.fit,
+        width: fillsParent ? double.infinity : null,
+        height: fillsParent ? double.infinity : null,
+        gaplessPlayback: true,
+        filterQuality: FilterQuality.medium,
+        cacheWidth: widget.fit == BoxFit.cover ? null : 512,
+        headers: const {
+          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: widget.iconColor.withValues(alpha: 0.5),
+                value: progress.expectedTotalBytes == null
+                    ? null
+                    : progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!,
+              ),
+            ),
+          );
+        },
         errorBuilder: (_, _, _) {
           if (_index < widget.urls.length - 1) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -156,42 +201,7 @@ class _NetworkImageWithFallbackState extends State<_NetworkImageWithFallback> {
       );
     }
 
-    return Image.network(
-      url,
-      fit: widget.fit,
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.medium,
-
-      cacheWidth: widget.fit == BoxFit.cover ? null : 512,
-      headers: const {
-        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      },
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: widget.iconColor.withValues(alpha: 0.5),
-              value: progress.expectedTotalBytes == null
-                  ? null
-                  : progress.cumulativeBytesLoaded /
-                      progress.expectedTotalBytes!,
-            ),
-          ),
-        );
-      },
-      errorBuilder: (_, _, _) {
-        if (_index < widget.urls.length - 1) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _tryNext();
-          });
-          return const SizedBox.shrink();
-        }
-        return error;
-      },
-    );
+    if (!fillsParent) return image;
+    return SizedBox.expand(child: image);
   }
 }

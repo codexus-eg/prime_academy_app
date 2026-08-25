@@ -61,66 +61,71 @@ class _IncompleteTaskCardState extends State<IncompleteTaskCard> {
                     ? IncompleteCategoryStyle.cardBorderHover
                     : IncompleteCategoryStyle.cardBorder,
               ),
-              boxShadow: _hovered ? AppShadows.lg : null,
+              boxShadow: _hovered ? AppShadows.tailwindLg : null,
             ),
-            child: Row(
-              children: [
-                _TaskIcon(category: widget.task.category),
-                const SizedBox(width: AppSpacing.base),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.task.courseLabel,
-                        textAlign: TextAlign.start,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.custom(
-                          fontSize: 12,
-                          fontWeight: AppFonts.regular,
-                          color: AppColors.textMuted.withValues(alpha: 0.6),
-                          height: 1.25,
-                        ),
-                      ),
-                      Text(
-                        widget.task.unitTitle,
-                        textAlign: TextAlign.start,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.custom(
-                          fontSize: 14,
-                          fontWeight: AppFonts.medium,
-                          color: AppColors.primary,
-                          height: 1.25,
-                        ),
-                      ),
-                      if (widget.task.subtitle != null)
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.noScaling,
+              ),
+              child: Row(
+                children: [
+                  _TaskIcon(category: widget.task.category),
+                  const SizedBox(width: AppSpacing.base),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                         Text(
-                          widget.task.subtitle!,
+                          widget.task.courseLabel,
                           textAlign: TextAlign.start,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.custom(
                             fontSize: 12,
                             fontWeight: AppFonts.regular,
-                            color: AppColors.textMuted.withValues(alpha: 0.5),
-                            height: 1.25,
+                            color: AppColors.textMuted.withValues(alpha: 0.6),
+                            height: 16 / 12,
                           ),
                         ),
-                    ],
+                        Text(
+                          widget.task.unitTitle,
+                          textAlign: TextAlign.start,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.custom(
+                            fontSize: 14,
+                            fontWeight: AppFonts.regular,
+                            color: AppColors.primary,
+                            height: 20 / 14,
+                          ),
+                        ),
+                        if (widget.task.subtitle != null)
+                          Text(
+                            widget.task.subtitle!,
+                            textAlign: TextAlign.start,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.custom(
+                              fontSize: 12,
+                              fontWeight: AppFonts.regular,
+                              color: AppColors.textMuted.withValues(alpha: 0.5),
+                              height: 16 / 12,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                AnimatedSlide(
-                  duration: const Duration(milliseconds: 200),
-                  offset: _hovered ? const Offset(-0.25, 0) : Offset.zero,
-                  child: LucideChevronLeftIcon(
-                    size: 16,
-                    color: style.accentText,
+                  AnimatedSlide(
+                    duration: const Duration(milliseconds: 200),
+                    offset: _hovered ? const Offset(-0.25, 0) : Offset.zero,
+                    child: LucideChevronLeftIcon(
+                      size: 16,
+                      color: style.accentText,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

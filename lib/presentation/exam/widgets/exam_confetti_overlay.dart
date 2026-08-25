@@ -2,10 +2,23 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../data/exam_celebration.dart';
+
+/// Canvas-confetti style bursts matching web `useCelebration.ts`.
 class ExamConfettiOverlay extends StatefulWidget {
-  const ExamConfettiOverlay({super.key, required this.trigger});
+  const ExamConfettiOverlay({
+    super.key,
+    required this.trigger,
+    this.clearToken = 0,
+    this.onComplete,
+  });
 
   final int trigger;
+
+  /// When incremented, any in-flight particles are discarded immediately.
+  final int clearToken;
+
+  final VoidCallback? onComplete;
 
   @override
   State<ExamConfettiOverlay> createState() => _ExamConfettiOverlayState();
@@ -13,7 +26,6 @@ class ExamConfettiOverlay extends StatefulWidget {
 
 class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
     with SingleTickerProviderStateMixin {
-
   static const _colors = [
     Color(0xFF26CCFF),
     Color(0xFFA25AFD),
@@ -27,6 +39,7 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
   late AnimationController _controller;
   List<_ConfettiPiece> _pieces = const [];
   var _lastTrigger = 0;
+  var _lastClearToken = 0;
   var _lastEffect = -1;
 
   @override
@@ -34,17 +47,39 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2800),
+      duration: ExamCelebration.confettiLifetime,
     );
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        if (mounted) setState(() => _pieces = const []);
+        widget.onComplete?.call();
+      }
+    });
   }
 
   @override
   void didUpdateWidget(covariant ExamConfettiOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.clearToken != _lastClearToken) {
+      _lastClearToken = widget.clearToken;
+      _hardClear();
+    }
     if (widget.trigger != _lastTrigger && widget.trigger > 0) {
       _lastTrigger = widget.trigger;
       _launch();
     }
+  }
+
+  void _hardClear() {
+    final wasPlaying = _pieces.isNotEmpty;
+    _controller.stop();
+    _controller.reset();
+    if (_pieces.isNotEmpty && mounted) {
+      setState(() => _pieces = const []);
+    } else {
+      _pieces = const [];
+    }
+    if (wasPlaying) widget.onComplete?.call();
   }
 
   bool get _isMobile => MediaQuery.sizeOf(context).width < 768;
@@ -61,7 +96,7 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
     final pieces = <_ConfettiPiece>[];
     if (mobile) {
       if (index == 0) {
-
+        // Web confettiEffectsMobile[0]
         _spawnBurst(
           pieces: pieces,
           random: random,
@@ -74,7 +109,7 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
           count: math.max(1, (90 * scale).floor()),
         );
       } else {
-
+        // Web confettiEffectsMobile[1]
         _spawnBurst(
           pieces: pieces,
           random: random,
@@ -88,7 +123,7 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
         );
       }
     } else if (index == 0) {
-
+      // Web confettiEffectsDesktop[0] — staggered shoots
       const waves = [
         (ratio: 0.25, spread: 26.0, velocity: 55.0, scalar: 1.0, decay: 0.9),
         (ratio: 0.20, spread: 60.0, velocity: 45.0, scalar: 1.0, decay: 0.9),
@@ -113,7 +148,7 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
         );
       }
     } else {
-
+      // Web confettiEffectsDesktop[1] — side cannons
       final count = math.max(1, (80 * scale).floor());
       _spawnBurst(
         pieces: pieces,
@@ -156,7 +191,6 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
     double scalar = 1,
     double startDelay = 0,
   }) {
-
     final speedNorm = startVelocity / 95;
     for (var i = 0; i < count; i++) {
       final spreadRad = spreadDeg * math.pi / 180;
@@ -168,7 +202,6 @@ class _ExamConfettiOverlayState extends State<ExamConfettiOverlay>
           x: originX,
           y: originY,
           vx: math.cos(theta) * speed,
-
           vy: -math.sin(theta) * speed,
           size: (random.nextDouble() * 6 + 5) * scalar,
           color: _colors[random.nextInt(_colors.length)],

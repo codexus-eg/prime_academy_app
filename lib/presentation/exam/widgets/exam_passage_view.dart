@@ -178,7 +178,6 @@ class _ExamPassageViewState extends State<ExamPassageView> {
                         Expanded(
                           child: _buildPassageSide(
                             isMobileLayout: false,
-                            compactTitle: false,
                           ),
                         ),
                       ],
@@ -190,7 +189,6 @@ class _ExamPassageViewState extends State<ExamPassageView> {
                         )
                       : _buildPassageSide(
                           isMobileLayout: true,
-                          compactTitle: true,
                         ),
             ),
           ],
@@ -244,14 +242,12 @@ class _ExamPassageViewState extends State<ExamPassageView> {
 
   Widget _buildPassageSide({
     required bool isMobileLayout,
-    required bool compactTitle,
   }) {
     final passages = widget.question.passages;
-    final title = compactTitle
-        ? 'فقرة ${_activePassage + 1}'
-        : passages.length > 1
-            ? 'اقرأ الفقرات وأجب عن الأسئلة التالية'
-            : 'اقرأ الفقرة وأجب عن الأسئلة التالية';
+    // Same instruction as web desktop PanelHeader — never the short "فقرة 1".
+    final title = passages.length > 1
+        ? 'اقرأ الفقرات وأجب عن الأسئلة التالية'
+        : 'اقرأ الفقرة وأجب عن الأسئلة التالية';
 
     return _PassagePanel(
       isMobileLayout: isMobileLayout,
@@ -290,7 +286,8 @@ class _ExamPassageViewState extends State<ExamPassageView> {
               padding: const EdgeInsets.all(AppSpacing.base),
               child: QuizHtmlText(
                 html: passages[_activePassage.clamp(0, passages.length - 1)],
-
+                textAlign: TextAlign.start,
+                blockParagraphs: true,
                 baseStyle: AppTypography.bodySm.copyWith(
                   color: Colors.white.withValues(alpha: 0.8),
                   height: 1.625,
@@ -563,25 +560,29 @@ class _PanelHeader extends StatelessWidget {
             bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           ),
         ),
-        child: Row(
-          children: [
-            _LedBadge(
-              label: badge,
-              color: badgeColor,
-              glow: !isMobileLayout,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                title,
-                style: AppTypography.bodySm.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontWeight: AppFonts.semibold,
-                  fontSize: 14,
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            children: [
+              _LedBadge(
+                label: badge,
+                color: badgeColor,
+                glow: !isMobileLayout,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.right,
+                  style: AppTypography.bodySm.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontWeight: AppFonts.semibold,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -779,6 +780,9 @@ class _QuestionsList extends StatelessWidget {
             .cardIconColors[index % _PassageTokens.cardIconColors.length];
         final letter = String.fromCharCode(65 + index);
         final type = _passageTypeChip(question.type);
+        final title = stripQuizHtml(question.title);
+        // Web `dir="auto"`: punctuation follows the question language.
+        final titleDirection = QuizHtmlText.detectTextDirection(title);
 
         return Material(
           color: Colors.transparent,
@@ -842,13 +846,16 @@ class _QuestionsList extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    stripQuizHtml(question.title),
-                    textAlign: TextAlign.right,
-                    style: AppTypography.bodySm.copyWith(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      height: 1.375,
-                      fontSize: 14,
+                  Directionality(
+                    textDirection: titleDirection,
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.right,
+                      style: AppTypography.bodySm.copyWith(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        height: 1.375,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ],

@@ -31,4 +31,11 @@ abstract final class ExamSounds {
     await _player.stop();
     await _player.play(AssetSource(ExamAssets.incorrectSound));
   }
+
+  /// Stop any in-flight SFX so nothing bleeds into the next question.
+  static Future<void> stop() async {
+    try {
+      await _player.stop();
+    } catch (_) {}
+  }
 }

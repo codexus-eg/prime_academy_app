@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/course_assets.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../course/course_detail_page.dart';
-import '../home_page_scroll.dart';
 import '../student_profile_scope.dart';
 import '../widgets/course_card.dart';
 
@@ -15,11 +14,7 @@ class HomeCoursesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = StudentProfileScope.maybeOf(context);
 
-    if (scope == null || scope.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (scope.errorMessage != null) {
+    if (scope?.errorMessage != null && scope?.profile == null) {
       return Center(
         child: Padding(
           padding: AppSpacing.profileTabContentPadding,
@@ -27,7 +22,7 @@ class HomeCoursesTab extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                scope.errorMessage!,
+                scope!.errorMessage!,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
@@ -44,7 +39,7 @@ class HomeCoursesTab extends StatelessWidget {
       );
     }
 
-    final courses = scope.profile?.courses ?? const [];
+    final courses = scope?.profile?.courses ?? const [];
 
     if (courses.isEmpty) {
       return Padding(
@@ -57,32 +52,28 @@ class HomeCoursesTab extends StatelessWidget {
       );
     }
 
-    return ListView(
-      shrinkWrap: true,
-      physics: HomePageScroll.scrollPhysics,
+    return Padding(
       padding: AppSpacing.profileTabContentPadding,
-      children: [
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: AppSpacing.courseListGap,
-          runSpacing: AppSpacing.courseListGap,
-          children: [
-            for (final course in courses)
-              Builder(
-                builder: (context) {
-                  final visuals = CourseAssets.resolve(course.type);
-                  return CourseCard(
-                    title: course.title,
-                    logoUrl: visuals.iconUrl,
-                    backgroundUrl: visuals.backgroundUrl,
-                    onGoToCourse: () =>
-                        context.push(CourseDetailPage.pathFor('${course.id}')),
-                  );
-                },
-              ),
-          ],
-        ),
-      ],
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: AppSpacing.courseListGap,
+        runSpacing: AppSpacing.courseListGap,
+        children: [
+          for (final course in courses)
+            Builder(
+              builder: (context) {
+                final visuals = CourseAssets.resolve(course.type);
+                return CourseCard(
+                  title: course.title,
+                  logoUrl: visuals.iconUrl,
+                  backgroundUrl: visuals.backgroundUrl,
+                  onGoToCourse: () =>
+                      context.push(CourseDetailPage.pathFor('${course.id}')),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }

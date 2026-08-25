@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -14,6 +16,7 @@ import '../../data/quizzes/unit_quiz_question.dart';
 import '../../data/quizzes/unit_quiz_api.dart';
 import 'data/exam_sounds.dart';
 import 'widgets/exam_animated_progress.dart';
+import 'data/exam_celebration.dart';
 import 'widgets/exam_confetti_overlay.dart';
 import 'widgets/exam_feedback_banner.dart';
 import 'widgets/exam_finished_state.dart';
@@ -85,7 +88,10 @@ class _ExamPageState extends State<ExamPage> {
   bool? _lastAnswerCorrect;
   int _confettiTrigger = 0;
   int _lottieTrigger = 0;
+  int _celebrationClearToken = 0;
+  Completer<void>? _celebrationCompleter;
   bool _lottieIsCorrect = true;
+  bool _lastCelebrationUsedLottie = false;
   int _feedbackKey = 0;
   int _correctStreak = 0;
   bool _questionReady = false;
@@ -451,12 +457,47 @@ class _ExamPageState extends State<ExamPage> {
     await _advanceQuestion();
   }
 
-  Future<void> _holdFeedback(bool isCorrect) async {
-    if (isCorrect) {
-      await Future<void>.delayed(AppDurations.examCorrectAdvance);
-    } else {
-      await Future<void>.delayed(AppDurations.examWrongHold);
+  void _onCelebrationComplete() {
+    final completer = _celebrationCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
     }
+  }
+
+  Future<void> _waitForCelebrationEffect() async {
+    final completer = _celebrationCompleter;
+    if (completer == null) return;
+    await completer.future.timeout(
+      ExamCelebration.effectWaitTimeout,
+      onTimeout: () {},
+    );
+    _celebrationCompleter = null;
+  }
+
+  Future<void> _holdFeedback(bool isCorrect) async {
+    final revealing = _activeQuestion is UnitEssayQuestion ||
+        _activeQuestion is UnitFillBlankQuestion;
+    final delay = ExamCelebration.holdFor(
+      isCorrect: isCorrect,
+      usedLottie: isCorrect && _lastCelebrationUsedLottie,
+      revealAnswer: revealing,
+    );
+    // Keep the answer colors on screen for the web delay, and do not swap
+    // questions until confetti / Lottie has actually finished playing.
+    await Future.wait<void>([
+      Future<void>.delayed(delay),
+      _waitForCelebrationEffect(),
+    ]);
+    if (!mounted) return;
+    await Future<void>.delayed(ExamCelebration.afterEffectPause);
+    if (!mounted) return;
+    await _clearCelebrations();
+  }
+
+  Future<void> _clearCelebrations() async {
+    await ExamSounds.stop();
+    if (!mounted) return;
+    setState(() => _celebrationClearToken++);
   }
 
   void _completeMidProgress() {
@@ -504,20 +545,27 @@ class _ExamPageState extends State<ExamPage> {
   }
 
   void _triggerCelebration(bool isCorrect) {
+    _celebrationCompleter = Completer<void>();
     if (isCorrect) {
       ExamSounds.playCorrect();
       _correctStreak++;
       if (_correctStreak >= 4) {
+        // Web: every 4th correct → Lottie + LOTTIE_DELAY (2100ms).
         _correctStreak = 0;
+        _lastCelebrationUsedLottie = true;
         setState(() {
           _lottieIsCorrect = true;
           _lottieTrigger++;
         });
       } else {
+        // Web: confetti + 1500ms MCQ advance.
+        _lastCelebrationUsedLottie = false;
         setState(() => _confettiTrigger++);
       }
     } else {
       ExamSounds.playIncorrect();
+      _correctStreak = 0;
+      _lastCelebrationUsedLottie = true;
       setState(() {
         _lottieIsCorrect = false;
         _lottieTrigger++;
@@ -632,12 +680,13 @@ class _ExamPageState extends State<ExamPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.examBackground,
+    return ExamBackdropHost(
+      child: Scaffold(
+        backgroundColor: AppColors.examBackground,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const ExamStarryBackground(),
+          const Positioned.fill(child: ExamStarryBackground()),
           SafeArea(
             child: Center(
               child: switch (_phase) {
@@ -707,10 +756,16 @@ class _ExamPageState extends State<ExamPage> {
           ),
           if (_phase == _ExamPhase.inProgress ||
               _phase == _ExamPhase.midProgress) ...[
-            ExamConfettiOverlay(trigger: _confettiTrigger),
+            ExamConfettiOverlay(
+              trigger: _confettiTrigger,
+              clearToken: _celebrationClearToken,
+              onComplete: _onCelebrationComplete,
+            ),
             ExamLottieOverlay(
               trigger: _lottieTrigger,
               isCorrect: _lottieIsCorrect,
+              clearToken: _celebrationClearToken,
+              onAnimationComplete: _onCelebrationComplete,
             ),
           ],
           if (_lastAnswerCorrect != null &&
@@ -721,6 +776,7 @@ class _ExamPageState extends State<ExamPage> {
               isCorrect: _lastAnswerCorrect!,
             ),
         ],
+      ),
       ),
     );
   }

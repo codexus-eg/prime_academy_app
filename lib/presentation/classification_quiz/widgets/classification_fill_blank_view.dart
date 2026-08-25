@@ -76,22 +76,71 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
     super.dispose();
   }
 
+  static const _emptyMarker = '\u200B';
+
   void _resetFields() {
     _chars = widget.question.correctAnswer.split('');
     _values = List.filled(_chars.length, '');
-    _focusNodes = List.generate(_chars.length, (_) => FocusNode());
-    for (final node in _focusNodes) {
+    _focusNodes = List.generate(_chars.length, (i) {
+      final node = FocusNode();
+      node.onKeyEvent = (focusNode, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey != LogicalKeyboardKey.backspace &&
+            event.logicalKey != LogicalKeyboardKey.delete) {
+          return KeyEventResult.ignored;
+        }
+        if (_values[i].isNotEmpty) return KeyEventResult.ignored;
+        _handleEmptyBackspace(i);
+        return KeyEventResult.handled;
+      };
       node.addListener(_onAnyFocusChange);
-    }
+      return node;
+    });
     _controllers = List.generate(
       _chars.length,
-      (_) => TextEditingController(),
+      (_) => TextEditingController(text: _emptyMarker),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final first = _chars.indexWhere((c) => c != ' ');
       if (first >= 0) _focusNodes[first].requestFocus();
     });
+  }
+
+  int _previousLetterIndex(int index) {
+    var prev = index - 1;
+    while (prev >= 0 && _chars[prev] == ' ') {
+      prev--;
+    }
+    return prev;
+  }
+
+  void _ensureEmptyMarker(int index) {
+    if (_controllers[index].text == _emptyMarker) return;
+    _controllers[index].value = const TextEditingValue(
+      text: _emptyMarker,
+      selection: TextSelection.collapsed(offset: 1),
+    );
+  }
+
+  void _handleEmptyBackspace(int index) {
+    final prev = _previousLetterIndex(index);
+    if (prev < 0) {
+      _ensureEmptyMarker(index);
+      return;
+    }
+    setState(() {
+      _values[prev] = '';
+      _ensureEmptyMarker(prev);
+    });
+    widget.onAnswerChange(_hasAnyInput);
+    _focusNodes[prev].requestFocus();
+  }
+
+  String _visibleChar(String value) {
+    final cleaned = value.replaceAll(_emptyMarker, '');
+    if (cleaned.isEmpty) return '';
+    return cleaned.characters.last;
   }
 
   void _disposeFields() {
@@ -132,29 +181,47 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
     setState(() => _submitted = true);
     widget.onAnswerChange(false);
     widget.onCorrectChange(_isCorrect);
-    Future<void>.delayed(const Duration(milliseconds: 2200), () {
-      if (!mounted) return;
+    if (widget.examStyle) {
       widget.onAnswered(_fullAnswer);
-    });
+    } else {
+      Future<void>.delayed(const Duration(milliseconds: 2200), () {
+        if (!mounted) return;
+        widget.onAnswered(_fullAnswer);
+      });
+    }
   }
 
   void _onChanged(int index, String value) {
     if (_submitted) return;
-    final char = value.isEmpty ? '' : value.characters.last;
+    final char = _visibleChar(value);
+    if (char.isEmpty) {
+      final wasEmpty = _values[index].isEmpty;
+      if (value == _emptyMarker && wasEmpty) return;
+      if (!wasEmpty) {
+        setState(() => _values[index] = '');
+        widget.onAnswerChange(_hasAnyInput);
+        _ensureEmptyMarker(index);
+        return;
+      }
+      _ensureEmptyMarker(index);
+      _handleEmptyBackspace(index);
+      return;
+    }
     setState(() {
       _values[index] = char;
-      _controllers[index].text = char;
-      _controllers[index].selection =
-          TextSelection.collapsed(offset: char.length);
+      if (_controllers[index].text != char) {
+        _controllers[index].value = TextEditingValue(
+          text: char,
+          selection: TextSelection.collapsed(offset: char.length),
+        );
+      }
     });
     widget.onAnswerChange(_hasAnyInput);
-    if (char.isNotEmpty) {
-      var next = index + 1;
-      while (next < _chars.length && _chars[next] == ' ') {
-        next++;
-      }
-      if (next < _chars.length) _focusNodes[next].requestFocus();
+    var next = index + 1;
+    while (next < _chars.length && _chars[next] == ' ') {
+      next++;
     }
+    if (next < _chars.length) _focusNodes[next].requestFocus();
   }
 
   String _charState(int index) {
@@ -273,11 +340,16 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
                         builder: (context, constraints) {
                           final tiles = <Widget>[];
                           var colorIndex = 0;
+                          final cellSize = math.min(
+                            boxSize,
+                            constraints.maxWidth,
+                          );
                           for (var i = 0; i < _chars.length; i++) {
                             if (_chars[i] == ' ') {
                               tiles.add(
                                 SizedBox(
                                   width: 32,
+                                  height: cellSize,
                                   child: Center(
                                     child: Container(
                                       width: 24,
@@ -298,7 +370,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
                             } else {
                               tiles.add(
                                 _LetterInput(
-                                  size: boxSize,
+                                  size: cellSize,
                                   fontSize: letterFontSize,
                                   palette:
                                       ClassificationAnswerPalette.forIndex(
@@ -312,21 +384,16 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
                                 ),
                               );
                             }
-                            if (i < _chars.length - 1) {
-                              tiles.add(const SizedBox(width: 16));
-                            }
                           }
 
-                          return SizedBox(
-                            width: constraints.maxWidth,
-                            height: math.max(160.0, boxSize),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: tiles,
-                              ),
+                          return ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 160),
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 16,
+                              runSpacing: 16,
+                              children: tiles,
                             ),
                           );
                         },
@@ -643,7 +710,7 @@ class _LetterInput extends StatelessWidget {
             enabled: enabled,
             textAlign: TextAlign.center,
             textDirection: TextDirection.ltr,
-            maxLength: 1,
+            maxLength: 2,
             cursorColor: colors.$4,
             style: TextStyle(
               color: colors.$4,
@@ -832,7 +899,7 @@ class _ExamLetterInputState extends State<_ExamLetterInput> {
           enabled: widget.enabled,
           textAlign: TextAlign.center,
           textDirection: TextDirection.ltr,
-          maxLength: 1,
+          maxLength: 2,
           cursorColor: AppColors.onDark,
           cursorWidth: 1.5,
           style: TextStyle(

@@ -6,11 +6,16 @@ class QuizHtmlText extends StatelessWidget {
     required this.html,
     this.baseStyle,
     this.textAlign = TextAlign.center,
+    this.blockParagraphs = false,
   });
 
   final String html;
   final TextStyle? baseStyle;
   final TextAlign textAlign;
+
+  /// When true, each HTML `<p>` (or blank-line) becomes its own block with
+  /// web-like `1em` gap — used for reading passages.
+  final bool blockParagraphs;
 
   static final _tagPattern = RegExp(
     r'<(/?)(p|strong|b|mark|br|span|em|i|u|div)([^>]*)>|([^<]+)',
@@ -29,6 +34,13 @@ class QuizHtmlText extends StatelessWidget {
           height: 1.6,
         );
 
+    if (blockParagraphs) {
+      return Directionality(
+        textDirection: direction,
+        child: _buildParagraphBlocks(normalized, style),
+      );
+    }
+
     var children = _parse(normalized, style);
     if (_hasHtmlArtifacts(children)) {
       children = [TextSpan(text: _decodeEntities(plain), style: style)];
@@ -43,8 +55,95 @@ class QuizHtmlText extends StatelessWidget {
     );
   }
 
+  Widget _buildParagraphBlocks(String html, TextStyle style) {
+    final blocks = splitParagraphs(html);
+    final gap = style.fontSize ?? 14;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < blocks.length; i++) ...[
+          if (i > 0) SizedBox(height: gap),
+          RichText(
+            textAlign: textAlign,
+            text: TextSpan(
+              style: style,
+              children: _spansForBlock(blocks[i], style),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<InlineSpan> _spansForBlock(String block, TextStyle style) {
+    var children = _parse(block, style);
+    if (_hasHtmlArtifacts(children)) {
+      children = [
+        TextSpan(text: _decodeEntities(_stripTags(block)), style: style),
+      ];
+    }
+    return children;
+  }
+
+  /// Splits HTML into visual paragraphs, matching browser `<p>` / blank lines.
+  static List<String> splitParagraphs(String html) {
+    final normalized = _normalizeHtml(html);
+    if (normalized.isEmpty) return const [];
+
+    final pRe = RegExp(
+      r'<p\b[^>]*>(.*?)</p>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+    final matches = pRe.allMatches(normalized).toList();
+    if (matches.isNotEmpty) {
+      final blocks = <String>[];
+      var cursor = 0;
+      for (final match in matches) {
+        _addIfContent(blocks, normalized.substring(cursor, match.start));
+        _addIfContent(blocks, match.group(1) ?? '');
+        cursor = match.end;
+      }
+      _addIfContent(blocks, normalized.substring(cursor));
+      return blocks.isEmpty ? [normalized] : blocks;
+    }
+
+    final doubleBr = RegExp(
+      r'(?:<br\s*/?\>\s*){2,}',
+      caseSensitive: false,
+    );
+    if (doubleBr.hasMatch(normalized)) {
+      return normalized
+          .split(doubleBr)
+          .map((s) => s.trim())
+          .where((s) => _stripTags(s).isNotEmpty)
+          .toList();
+    }
+
+    final withBreaks = normalized.replaceAll(
+      RegExp(r'<br\s*/?\>', caseSensitive: false),
+      '\n',
+    );
+    if (RegExp(r'\n\s*\n').hasMatch(withBreaks)) {
+      return withBreaks
+          .split(RegExp(r'\n\s*\n'))
+          .map((s) => s.trim())
+          .where((s) => _stripTags(s).isNotEmpty)
+          .toList();
+    }
+
+    return [normalized];
+  }
+
+  static void _addIfContent(List<String> blocks, String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return;
+    if (_stripTags(trimmed).isEmpty) return;
+    blocks.add(trimmed);
+  }
+
   static TextDirection detectTextDirection(String html) =>
-      _detectDirection(_stripTags(html));
+      _detectDirection(_stripTags(_decodeEntities(html)));
 
   static String plainText(String html) => _stripTags(html);
 
@@ -72,26 +171,27 @@ class QuizHtmlText extends StatelessWidget {
   static String _stripTags(String input) =>
       input.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
 
+  /// Matches web `getTextDirection`: language of the *input* is the first
+  /// strong letter after stripping HTML — not a majority count of letters.
+  /// Mixed Arabic+English prompts that start in Arabic stay RTL (`سؤال`).
   static TextDirection _detectDirection(String text) {
-    var rtl = 0;
-    var ltr = 0;
+    if (text.isEmpty) return TextDirection.rtl;
     for (final rune in text.runes) {
-      if (_isRtl(rune)) {
-        rtl++;
-      } else if (_isLtr(rune)) {
-        ltr++;
-      }
+      if (_isRtl(rune)) return TextDirection.rtl;
+      if (_isLtr(rune)) return TextDirection.ltr;
     }
-    if (rtl == 0 && ltr == 0) return TextDirection.ltr;
-    return rtl >= ltr ? TextDirection.rtl : TextDirection.ltr;
+    return TextDirection.rtl;
   }
 
+  /// Web `RTL_CHAR_REGEX`: `\u0591-\u07FF`, `\u200F`, `\u202B`, `\u202E`,
+  /// `\uFB1D-\uFDFD`, `\uFE70-\uFEFC`.
   static bool _isRtl(int codeUnit) =>
-      (codeUnit >= 0x0600 && codeUnit <= 0x06FF) ||
-      (codeUnit >= 0x0750 && codeUnit <= 0x077F) ||
-      (codeUnit >= 0x08A0 && codeUnit <= 0x08FF) ||
-      (codeUnit >= 0xFB50 && codeUnit <= 0xFDFF) ||
-      (codeUnit >= 0xFE70 && codeUnit <= 0xFEFF);
+      (codeUnit >= 0x0591 && codeUnit <= 0x07FF) ||
+      codeUnit == 0x200F ||
+      codeUnit == 0x202B ||
+      codeUnit == 0x202E ||
+      (codeUnit >= 0xFB1D && codeUnit <= 0xFDFD) ||
+      (codeUnit >= 0xFE70 && codeUnit <= 0xFEFC);
 
   static bool _isLtr(int codeUnit) =>
       (codeUnit >= 0x0041 && codeUnit <= 0x005A) ||
@@ -126,7 +226,7 @@ class QuizHtmlText extends StatelessWidget {
         if (spans.isNotEmpty && spans.last is TextSpan) {
           final last = spans.last as TextSpan;
           if (last.text != null && !last.text!.endsWith('\n')) {
-            spans.add(const TextSpan(text: '\n'));
+            spans.add(const TextSpan(text: '\n\n'));
           }
         }
         stack.add(stack.last);
@@ -169,7 +269,7 @@ class QuizHtmlText extends StatelessWidget {
     return Color(int.parse('FF$hex', radix: 16));
   }
 
-  String _decodeEntities(String text) => text
+  static String _decodeEntities(String text) => text
       .replaceAll('&nbsp;', ' ')
       .replaceAll('&amp;', '&')
       .replaceAll('&lt;', '<')

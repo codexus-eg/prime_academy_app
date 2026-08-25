@@ -20,7 +20,12 @@ class NotificationBellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final isMobile = MediaQuery.sizeOf(context).width < AppSpacing.breakpointSm;
+    final scale = isMobile
+        ? AppSpacing.mobileNavBellMobileScale
+        : AppSpacing.mobileNavBellDesktopScale;
+
+    final bell = Material(
       color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -55,6 +60,13 @@ class NotificationBellButton extends StatelessWidget {
         ),
       ),
     );
+
+    if (scale == 1) return bell;
+
+    return Transform.scale(
+      scale: scale,
+      child: bell,
+    );
   }
 }
 
@@ -63,11 +75,12 @@ class _BellNotificationDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Web: absolute top-0 right-0 w-3 h-3 rounded-full bg-red-500
     return Container(
       width: AppSpacing.notificationBellDotSize,
       height: AppSpacing.notificationBellDotSize,
       decoration: const BoxDecoration(
-        color: AppColors.notificationDot,
+        color: AppColors.error,
         shape: BoxShape.circle,
       ),
     );

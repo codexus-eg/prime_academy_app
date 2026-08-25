@@ -131,18 +131,13 @@ class MemoryCardStack extends StatelessWidget {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    if (hasBehindSlot)
+                    if (showBehind)
                       Positioned.fill(
                         key: const ValueKey('memory-card-behind-slot'),
                         child: IgnorePointer(
-                          ignoring: !showBehind,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 150),
-                            opacity: showBehind ? 1 : 0,
-                            child: Transform.scale(
-                              scale: behindScale,
-                              child: buildCard(behindIndex, cardFlipped: false),
-                            ),
+                          child: Transform.scale(
+                            scale: behindScale,
+                            child: buildCard(behindIndex, cardFlipped: false),
                           ),
                         ),
                       ),

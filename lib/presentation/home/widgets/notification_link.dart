@@ -45,11 +45,27 @@ abstract final class NotificationLink {
           );
         }
       case NotificationType.moduleMaterial:
-        final url = data.url ?? data.link;
-        if (url.isNotEmpty) {
+        final materialUrl = data.url ?? data.link;
+        if (materialUrl.isNotEmpty) {
+          final normalized = normalizeAppPath(materialUrl);
+          if (normalized != null) {
+            return NotificationNavigationTarget(location: normalized);
+          }
+          if (_looksLikeExternalUrl(materialUrl)) {
+            return NotificationNavigationTarget(
+              location: '/',
+              externalUrl: materialUrl,
+            );
+          }
+        }
+        if (courseId != null && moduleId != null && itemId != null) {
           return NotificationNavigationTarget(
-            location: '/',
-            externalUrl: url,
+            location: _lessonPath(
+              courseId: courseId,
+              moduleId: moduleId,
+              itemId: itemId,
+              query: const {'active_tab': 'files'},
+            ),
           );
         }
       case NotificationType.chat:
@@ -111,6 +127,28 @@ abstract final class NotificationLink {
     return NotificationNavigationTarget(
       location: HomeTab.defaultTab.routePath,
     );
+  }
+
+  /// FCM / SSE payload fields are strings (`buildFcmData` on the server).
+  static NotificationNavigationTarget fromPayload(Map<String, String> data) {
+    return resolve(
+      type: NotificationType.fromApi(data['type']),
+      data: NotificationData(
+        title: data['title'] ?? '',
+        link: data['link'] ?? '',
+        chatId: _parseId(data['chatId'] ?? data['chat_id']),
+        itemId: _parseId(data['itemId'] ?? data['item_id']),
+        lessonId: _parseId(data['lessonId'] ?? data['lesson_id']),
+        courseId: _parseId(data['courseId'] ?? data['course_id']),
+        moduleId: _parseId(data['moduleId'] ?? data['module_id']),
+        url: data['url'],
+      ),
+    );
+  }
+
+  static int? _parseId(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return int.tryParse(value);
   }
 
   static NotificationNavigationTarget forItem(NotificationListItem item) {

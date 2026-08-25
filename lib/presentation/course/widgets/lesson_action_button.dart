@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/painting/css_lesson_action_gradient_painter.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_durations.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -50,8 +51,8 @@ class _LessonActionButtonState extends State<LessonActionButton> {
   bool get _enabled => widget.onTap != null;
 
   Color get _ringColor => switch (widget.style) {
-        LessonActionStyle.purpleRadial => AppColors.purple,
-        _ => AppColors.blue,
+        LessonActionStyle.purpleRadial => AppColors.contentBtnFlashcardsHover,
+        _ => AppColors.contentBtnRingHover,
       };
 
   Color? get _gradientAccent => switch (widget.style) {
@@ -67,88 +68,95 @@ class _LessonActionButtonState extends State<LessonActionButton> {
     final radius = BorderRadius.circular(AppRadius.shadcnMd);
     final showRing = _enabled && (_hovered || _pressed);
     final accent = _gradientAccent;
+    const ringWidth = 2.0;
 
-    final button = AnimatedOpacity(
-      duration: const Duration(milliseconds: 300),
-      opacity: _enabled && _pressed ? 0.8 : 1,
-      child: ClipRRect(
-        borderRadius: radius,
-        child: SizedBox(
-          height: height,
-          width: double.infinity,
-          child: Stack(
-            clipBehavior: Clip.hardEdge,
-            fit: StackFit.expand,
-            children: [
-              if (accent != null)
-                Positioned.fill(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final gradientSize = Size(
-                        constraints.maxWidth,
-                        constraints.maxHeight,
-                      );
-                      return CustomPaint(
-                        size: gradientSize,
-                        painter: CssLessonActionGradientPainter(
-                          size: gradientSize,
-                          accent: accent,
-                          background: AppColors.contentBtnBg,
-                        ),
-                      );
-                    },
-                  ),
-                )
-              else
-                const ColoredBox(color: AppColors.contentBtnBg),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: radius,
-                    border: Border.all(
-                      color: showRing ? _ringColor : Colors.transparent,
-                      width: 2,
+    final content = Row(
+      textDirection: TextDirection.rtl,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (widget.leading != null)
+          widget.leading!
+        else
+          Icon(widget.icon, size: 16, color: AppColors.onDark),
+        if (widget.label.isNotEmpty) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: widget.labelAsBadge
+                ? _CompletionBadge(text: widget.label)
+                : Text(
+                    widget.label,
+                    textDirection: TextDirection.rtl,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: AppTypography.bodyMd.copyWith(
+                      color: AppColors.onDark,
                     ),
                   ),
-                  child: Row(
-                    textDirection: TextDirection.rtl,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (widget.leading != null)
-                        widget.leading!
-                      else
-                        Icon(widget.icon, size: 16, color: AppColors.onDark),
-                      if (widget.label.isNotEmpty) ...[
-                        const SizedBox(width: AppSpacing.sm),
-                        Flexible(
-                          child: widget.labelAsBadge
-                              ? _CompletionBadge(text: widget.label)
-                              : Text(
-                                  widget.label,
-                                  textDirection: TextDirection.rtl,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: AppTypography.bodyMd.copyWith(
-                                    fontWeight: AppFonts.medium,
-                                    color: AppColors.onDark,
-                                  ),
-                                ),
-                        ),
-                      ],
-                      if (widget.trailingBadge != null &&
-                          widget.trailingBadge!.isNotEmpty) ...[
-                        const SizedBox(width: AppSpacing.sm),
-                        _CompletionBadge(text: widget.trailingBadge!),
-                      ],
-                    ],
+          ),
+        ],
+        if (widget.trailingBadge != null &&
+            widget.trailingBadge!.isNotEmpty) ...[
+          const SizedBox(width: AppSpacing.sm),
+          _CompletionBadge(text: widget.trailingBadge!),
+        ],
+      ],
+    );
+
+    final button = AnimatedOpacity(
+      duration: AppDurations.hoverScale,
+      opacity: _enabled && _pressed ? 0.8 : 1,
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: radius,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (accent != null)
+                      CssLessonActionGradientLayer(
+                        accent: accent,
+                        background: AppColors.contentBtnBg,
+                      )
+                    else
+                      const ColoredBox(color: AppColors.contentBtnBg),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                      ),
+                      child: content,
+                    ),
+                    if (widget.showCompletionRibbon)
+                      const _CompletionRibbonOverlay(),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: -ringWidth,
+              top: -ringWidth,
+              right: -ringWidth,
+              bottom: -ringWidth,
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: AppDurations.hoverScale,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      AppRadius.shadcnMd + ringWidth,
+                    ),
+                    border: Border.all(
+                      color: showRing ? _ringColor : Colors.transparent,
+                      width: ringWidth,
+                    ),
                   ),
                 ),
               ),
-              if (widget.showCompletionRibbon)
-                const _CompletionRibbonOverlay(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -76,7 +76,6 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: 'units/:unitId/lessons/:lessonId',
           name: LessonDetailPage.routeName,
-
           pageBuilder: (context, state) {
             final courseId = state.pathParameters['courseId']!;
             final unitId = state.pathParameters['unitId']!;
