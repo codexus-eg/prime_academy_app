@@ -8,10 +8,13 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/phone_formatter.dart';
 import '../../core/widgets/legal_policy_links.dart';
+import '../../data/auth/auth_controller.dart';
+import '../../data/auth/auth_models.dart';
 import '../../data/auth/auth_service.dart';
 import '../../data/students/home_bootstrap.dart';
 import '../home/widgets/app_nav_scaffold.dart';
 import '../home/widgets/notification_navigator.dart';
+import 'widgets/account_picker_dialog.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -40,7 +43,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _restoreExistingSession() async {
-    final restored = await AuthService.restoreSession();
+    await AuthController.instance.hydrate();
+    final restored = AuthController.instance.isAuthenticated;
     if (!mounted || !restored) return;
     await _warmHomeAndNavigate();
   }
@@ -79,7 +83,29 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      await AuthService.loginWithPhone(normalized);
+      final outcome = await AuthService.loginWithPhone(normalized);
+      if (!mounted) return;
+
+      switch (outcome) {
+        case LoginRequiresSelection(:final selectionToken, :final accounts):
+          final userId = await showAccountPickerDialog(
+            context,
+            title: 'اختر الحساب',
+            description:
+                'وجدنا أكثر من حساب مرتبط بهذا الرقم، من فضلك اختر الحساب المطلوب',
+            accounts: accounts,
+          );
+          if (!mounted || userId == null) return;
+
+          setState(() => _isLoading = true);
+          await AuthService.selectAccount(
+            selectionToken: selectionToken,
+            userId: userId,
+          );
+        case LoginSuccess():
+          break;
+      }
+
       if (!mounted) return;
       await _warmHomeAndNavigate();
     } on AuthException catch (error) {
@@ -96,6 +122,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return AppNavScaffold(
+      showLogo: false,
       backgroundColor: AppTheme.background,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(

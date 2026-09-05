@@ -8,6 +8,8 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../../core/utils/lesson_playback_tracker.dart';
 import '../../../core/utils/video_progress.dart';
 import '../../../core/utils/video_source.dart';
+import '../../../core/widgets/lesson_surface_gate.dart';
+import '../../../core/widgets/platform_view_occlusion.dart';
 import 'lesson_video_chrome.dart';
 import 'lesson_video_fullscreen.dart';
 import 'lesson_youtube_chrome.dart';
@@ -90,10 +92,14 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
   Duration _duration = Duration.zero;
   String? _quality;
   List<String> _qualities = const [];
+  var _drawerOccluded = false;
+  var _wasPlayingBeforeOcclusion = false;
 
   @override
   void initState() {
     super.initState();
+    LessonSurfaceGate.instance.register(_releaseLessonSurface);
+    LessonSurfaceGate.instance.addListener(_onSurfaceGateChanged);
     _videoId = VideoSource.extractYouTubeId(widget.videoUrl) ??
         YoutubePlayerController.convertUrlToId(widget.videoUrl) ??
         '';
@@ -111,6 +117,25 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
       _error = 'تعذّر تشغيل الفيديو. تحقّق من الاتصال أو أعد المحاولة.';
     } else {
       _bindController(_createController());
+    }
+  }
+
+  void _onSurfaceGateChanged() {
+    if (!LessonSurfaceGate.instance.suppressed || !mounted) return;
+    unawaited(_releaseLessonSurface());
+  }
+
+  Future<void> _releaseLessonSurface() async {
+    if (_controller == null) return;
+    if (kDebugMode) {
+      debugPrint('[LessonSurface] YouTube release');
+    }
+    _detachController();
+    if (mounted) {
+      setState(() {
+        _playing = false;
+        _drawerOccluded = true;
+      });
     }
   }
 
@@ -262,7 +287,7 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
 
     if (_pendingAutoplay) {
       _pendingAutoplay = false;
-      controller.playVideo();
+      unawaited(_playWithGestureFallback());
     }
   }
 
@@ -295,7 +320,30 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
     );
   }
 
+  Future<void> _playWithGestureFallback() async {
+    final controller = _controller;
+    if (controller == null) return;
+    // Flutter taps land on our chrome, not the WebView — iOS/Android often
+    // block unmuted programmatic play. Mute → play → restore matches web/mobile
+    // embed practice so YouTube actually starts.
+    final wantSound = !_muted;
+    try {
+      if (wantSound) await controller.mute();
+      await controller.playVideo();
+      if (wantSound) {
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        if (!mounted || _muted) return;
+        await controller.unMute();
+      }
+    } catch (_) {
+      try {
+        controller.playVideo();
+      } catch (_) {}
+    }
+  }
+
   void _togglePlay() {
+    if (_drawerOccluded) return;
     final controller = _controller;
     if (controller == null) return;
     if (!_started) {
@@ -304,15 +352,13 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
         _pendingAutoplay = true;
         _controlsVisible = true;
       });
-      try {
-        controller.playVideo();
-      } catch (_) {}
+      unawaited(_playWithGestureFallback());
       return;
     }
     if (_playing) {
       controller.pauseVideo();
     } else {
-      controller.playVideo();
+      unawaited(_playWithGestureFallback());
     }
     _showControls();
   }
@@ -474,14 +520,64 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
   }
 
   @override
-  void dispose() {
-    _hideTimer?.cancel();
-    _stall.dispose();
-    _tracker.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final occluded = PlatformViewOcclusion.isOccluded(context);
+    if (occluded == _drawerOccluded) return;
+
+    if (occluded) {
+      // Platform views paint above Flutter drawers. Tear down the iframe now;
+      // a later remount must use a new controller (WebView binding is gone).
+      _wasPlayingBeforeOcclusion = _playing;
+      _drawerOccluded = true;
+      _playing = false;
+      _controlsVisible = true;
+      _pendingAutoplay = false;
+      _detachController();
+      return;
+    }
+
+    _drawerOccluded = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || PlatformViewOcclusion.isOccluded(context)) return;
+      if (_videoId.isEmpty || _controller != null) return;
+      final start = _position.inSeconds;
+      _bindController(
+        _createController(startSeconds: start > 0 ? start : null),
+      );
+      setState(() {
+        _loading = true;
+        _error = null;
+        if (_wasPlayingBeforeOcclusion) {
+          _started = true;
+          _pendingAutoplay = true;
+        }
+        _wasPlayingBeforeOcclusion = false;
+      });
+    });
+  }
+
+  void _detachController() {
     for (final sub in _subscriptions) {
       sub.cancel();
     }
-    _controller?.close();
+    _subscriptions.clear();
+    final controller = _controller;
+    _controller = null;
+    if (controller == null) return;
+    try {
+      controller.close();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    LessonSurfaceGate.instance.removeListener(_onSurfaceGateChanged);
+    LessonSurfaceGate.instance.unregister(_releaseLessonSurface);
+    _hideTimer?.cancel();
+    _stall.dispose();
+    _tracker.dispose();
+    _detachController();
     super.dispose();
   }
 
@@ -489,23 +585,31 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
   Widget build(BuildContext context) {
     final controller = _controller;
     final isFullscreen = kIsWeb && isBrowserFullscreen;
+    final occluded = PlatformViewOcclusion.isOccluded(context) ||
+        LessonSurfaceGate.instance.suppressed;
+    // While the drawer is open, keep a Flutter-only placeholder so the native
+    // YouTube view cannot paint above the drawer. Remount uses a fresh
+    // controller (see didChangeDependencies).
+    if (occluded || controller == null) {
+      return LessonVideoPlayerShell(
+        child: _chrome(isFullscreen: isFullscreen),
+      );
+    }
 
     return LessonVideoPlayerShell(
-      child: controller == null
-          ? _chrome(isFullscreen: isFullscreen)
-          : YoutubePlayer(
-              key: ObjectKey(controller),
-              controller: controller,
-              aspectRatio: 16 / 9,
-              backgroundColor: Colors.black,
-              enableFullScreenOnVerticalDrag: false,
-              autoFullScreen: false,
-              initParams: _playerParams,
-              gestureRecognizers: const {},
-              controlsBuilder: (context, fs) {
-                return _chrome(isFullscreen: fs || isFullscreen);
-              },
-            ),
+      child: YoutubePlayer(
+        key: ValueKey<Object>(controller),
+        controller: controller,
+        aspectRatio: 16 / 9,
+        backgroundColor: Colors.black,
+        enableFullScreenOnVerticalDrag: false,
+        autoFullScreen: false,
+        initParams: _playerParams,
+        gestureRecognizers: const {},
+        controlsBuilder: (context, fs) {
+          return _chrome(isFullscreen: fs || isFullscreen);
+        },
+      ),
     );
   }
 }

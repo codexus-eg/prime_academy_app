@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../../core/config/api_config.dart';
+import '../../core/network/api_client.dart';
 import '../../core/platform/device_type.dart';
+import '../../core/utils/json_bool.dart';
 import 'auth_cookie_client.dart';
 import 'auth_cookie_parser.dart';
+import 'auth_models.dart';
 import 'auth_session.dart';
 import 'jwt_utils.dart';
 
@@ -22,24 +25,178 @@ class AuthException implements Exception {
 abstract final class AuthService {
   static var _refreshInFlight = false;
 
-  static Future<AuthUser> loginWithPhone(String identifier) async {
+  static Future<LoginOutcome> loginWithPhone(String identifier) async {
     if (kIsWeb) {
       return _loginWithHttpPackage(identifier);
     }
     return _loginWithNativeClient(identifier);
   }
 
-  static Future<AuthUser> _loginWithNativeClient(String identifier) async {
+  static Future<AuthUser> selectAccount({
+    required String selectionToken,
+    required int userId,
+  }) async {
+    final response = await _postUnauthenticated(
+      '/auth/select-account',
+      {
+        'selectionToken': selectionToken,
+        'userId': userId,
+      },
+    );
+    return _saveUserFromAuthResponse(response);
+  }
+
+  static Future<List<LinkedAccount>> fetchLinkedAccounts() async {
+    final body = await ApiClient.getJson('/auth/linked-accounts');
+    final accounts = body['accounts'];
+    if (accounts is! List) return const [];
+
+    return accounts
+        .whereType<Map<String, dynamic>>()
+        .map(LinkedAccount.fromJson)
+        .toList();
+  }
+
+  static Future<AuthUser> switchAccount(int accountId) async {
+    final body = await ApiClient.postJson('/auth/switch-account', {
+      'accountId': accountId,
+    });
+    return _saveUserFromAuthBody(body);
+  }
+
+  static Future<LoginOutcome> _loginWithNativeClient(String identifier) async {
     try {
       final result = await AuthCookieClient.login(identifier: identifier);
-      return _userFromLoginResult(result);
+      return await _loginOutcomeFromNetworkResult(result);
     } on AuthLoginNetworkException catch (error) {
       throw AuthException(_networkErrorMessage(error.message));
     }
   }
 
-  static Future<AuthUser> _loginWithHttpPackage(String identifier) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/auth/login');
+  static Future<LoginOutcome> _loginWithHttpPackage(String identifier) async {
+    final response = await _postUnauthenticated(
+      '/auth/v2/login',
+      {
+        'identifier': identifier,
+        'deviceType': DeviceType.current,
+      },
+    );
+    return _loginOutcomeFromAuthResponse(response);
+  }
+
+  static Future<AuthUser> _saveUserFromAuthResponse(
+    _AuthHttpResponse response,
+  ) async {
+    if (response.statusCode != 200) {
+      throw AuthException(_messageFromBody(response.body));
+    }
+
+    final body = response.body;
+    if (body == null) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+
+    try {
+      final user = AuthUser.fromJson(body);
+      await AuthSession.save(user, refreshToken: response.refreshToken);
+      return user;
+    } catch (_) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+  }
+
+  static Future<AuthUser> _saveUserFromAuthBody(Map<String, dynamic> body) async {
+    try {
+      final user = AuthUser.fromJson(body);
+      await AuthSession.replaceUser(user);
+      return user;
+    } catch (_) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+  }
+
+  static Future<LoginOutcome> _loginOutcomeFromNetworkResult(
+    AuthLoginNetworkResult result,
+  ) async {
+    if (result.statusCode != 200) {
+      throw AuthException(_messageFromBody(result.body));
+    }
+
+    final body = result.body;
+    if (body == null) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+
+    final selection = _parseRequiresSelection(body);
+    if (selection != null) return selection;
+
+    try {
+      final user = AuthUser.fromJson(body);
+      await AuthSession.save(user, refreshToken: result.refreshToken);
+      return LoginSuccess(user);
+    } catch (_) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+  }
+
+  static Future<LoginOutcome> _loginOutcomeFromAuthResponse(
+    _AuthHttpResponse response,
+  ) async {
+    if (response.statusCode != 200) {
+      throw AuthException(_messageFromBody(response.body));
+    }
+
+    final body = response.body;
+    if (body == null) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+
+    final selection = _parseRequiresSelection(body);
+    if (selection != null) return selection;
+
+    try {
+      final user = AuthUser.fromJson(body);
+      await AuthSession.save(user, refreshToken: response.refreshToken);
+      return LoginSuccess(user);
+    } catch (_) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+  }
+
+  static LoginRequiresSelection? _parseRequiresSelection(
+    Map<String, dynamic> body,
+  ) {
+    if (!parseApiBool(body['requiresSelection'])) return null;
+
+    final token = body['selectionToken'];
+    final accountsRaw = body['accounts'];
+    if (token is! String ||
+        token.isEmpty ||
+        accountsRaw is! List ||
+        accountsRaw.isEmpty) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+
+    final accounts = accountsRaw
+        .whereType<Map<String, dynamic>>()
+        .map(LinkedAccount.fromJson)
+        .toList(growable: false);
+
+    if (accounts.isEmpty) {
+      throw AuthException('استجابة غير متوقعة من الخادم');
+    }
+
+    return LoginRequiresSelection(
+      selectionToken: token,
+      accounts: accounts,
+    );
+  }
+
+  static Future<_AuthHttpResponse> _postUnauthenticated(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
 
     late final http.Response response;
     try {
@@ -50,10 +207,7 @@ abstract final class AuthService {
           'Accept': 'application/json',
           'Accept-Language': 'ar',
         },
-        body: jsonEncode({
-          'identifier': identifier,
-          'deviceType': DeviceType.current,
-        }),
+        body: jsonEncode(payload),
       );
     } on http.ClientException catch (error) {
       throw AuthException(_networkErrorMessage(error.message));
@@ -61,43 +215,22 @@ abstract final class AuthService {
 
     Map<String, dynamic>? body;
     try {
-      body = jsonDecode(response.body) as Map<String, dynamic>?;
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) body = decoded;
     } catch (_) {
       body = null;
     }
 
-    if (response.statusCode != 200) {
-      throw AuthException(_messageFromBody(body));
-    }
+    final refreshToken = AuthCookieParser.readCookieFromCombinedHeader(
+      response.headers['set-cookie'],
+      'refreshToken',
+    );
 
-    try {
-      final user = AuthUser.fromJson(body!);
-      final refreshToken = AuthCookieParser.readCookieFromCombinedHeader(
-        response.headers['set-cookie'],
-        'refreshToken',
-      );
-      await AuthSession.save(user, refreshToken: refreshToken);
-      return user;
-    } catch (_) {
-      throw AuthException('استجابة غير متوقعة من الخادم');
-    }
-  }
-
-  static Future<AuthUser> _userFromLoginResult(AuthLoginNetworkResult result) async {
-    if (result.statusCode != 200) {
-      throw AuthException(_messageFromBody(result.body));
-    }
-
-    try {
-      final user = AuthUser.fromJson(result.body!);
-      await AuthSession.save(
-        user,
-        refreshToken: result.refreshToken,
-      );
-      return user;
-    } catch (_) {
-      throw AuthException('استجابة غير متوقعة من الخادم');
-    }
+    return _AuthHttpResponse(
+      statusCode: response.statusCode,
+      body: body,
+      refreshToken: refreshToken,
+    );
   }
 
   static Future<bool> ensureFreshAccessToken() async {
@@ -207,7 +340,6 @@ abstract final class AuthService {
         },
       );
     } catch (_) {
-
     } finally {
       await AuthSession.clear();
     }
@@ -265,4 +397,16 @@ abstract final class AuthService {
     }
     return 'تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.';
   }
+}
+
+class _AuthHttpResponse {
+  const _AuthHttpResponse({
+    required this.statusCode,
+    required this.body,
+    this.refreshToken,
+  });
+
+  final int statusCode;
+  final Map<String, dynamic>? body;
+  final String? refreshToken;
 }

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../data/notifications/notification_models.dart';
 import '../home_tab.dart';
 
@@ -5,10 +7,15 @@ class NotificationNavigationTarget {
   const NotificationNavigationTarget({
     required this.location,
     this.externalUrl,
+    this.opensRanking = false,
   });
 
   final String location;
   final String? externalUrl;
+
+  /// When true, [NotificationNavigator] calls the same path as the ranking tab
+  /// (`go(/home/ranking)`) and ignores [location] params / course ids.
+  final bool opensRanking;
 
   bool get isExternal => externalUrl != null && externalUrl!.isNotEmpty;
 }
@@ -105,8 +112,11 @@ abstract final class NotificationLink {
       case NotificationType.newQuestionPoint:
       case NotificationType.newLessonCardsCompleted:
       case NotificationType.newKnowledgeQuizPoints:
-        return NotificationNavigationTarget(
-          location: HomeTab.ranking.routePath,
+        // Same destination as HomeTabBar ranking tap — ignore data.link /
+        // course_id entirely (web buildNotificationLink parity).
+        return const NotificationNavigationTarget(
+          location: '/home/ranking',
+          opensRanking: true,
         );
       case NotificationType.unknown:
         break;
@@ -131,6 +141,9 @@ abstract final class NotificationLink {
 
   /// FCM / SSE payload fields are strings (`buildFcmData` on the server).
   static NotificationNavigationTarget fromPayload(Map<String, String> data) {
+    if (kDebugMode) {
+      debugPrint('[Notification] Payload received type=${data['type']}');
+    }
     return resolve(
       type: NotificationType.fromApi(data['type']),
       data: NotificationData(
@@ -158,7 +171,8 @@ abstract final class NotificationLink {
           data: NotificationData(
             title: group.title,
             link: group.link,
-            courseId: group.courseId,
+            courseId:
+                group.courseId ?? NotificationData.courseIdFromLink(group.link),
             moduleId: group.moduleId,
             itemId: group.itemId,
             chatId: group.groupId,
@@ -217,7 +231,13 @@ abstract final class NotificationLink {
     ).firstMatch(path);
     if (flutterQuizMatch != null) return path;
 
-    if (path.startsWith('/home/')) return path;
+    if (path.startsWith('/home/')) {
+      final query = uri?.queryParameters;
+      if (query != null && query.isNotEmpty) {
+        return Uri(path: path, queryParameters: query).toString();
+      }
+      return path;
+    }
 
     final profileTab = uri?.queryParameters['tab'];
     if (path.startsWith('/my-profile/student')) {

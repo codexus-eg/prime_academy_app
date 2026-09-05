@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/network/api_client.dart';
 import 'course_rank.dart';
 import 'module_material.dart';
@@ -6,11 +8,21 @@ import 'user_course.dart';
 abstract final class CoursesApi {
 
   static Future<List<CourseRankEntry>> fetchRanksByCourse(int courseId) async {
+    if (kDebugMode) {
+      debugPrint('[Ranking] API request started → GET /courses/ranks/$courseId');
+    }
     final list = await ApiClient.getJsonList('/courses/ranks/$courseId');
-    return list
+    final ranks = list
         .whereType<Map<String, dynamic>>()
         .map(CourseRankEntry.fromJson)
         .toList();
+    if (kDebugMode) {
+      debugPrint(
+        '[Ranking] API response received → ${ranks.length} entries '
+        'for courseId=$courseId',
+      );
+    }
+    return ranks;
   }
 
   static Future<UserCourse> fetchCourseForUser(int courseId) async {

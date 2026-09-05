@@ -50,7 +50,8 @@ abstract final class VideoSource {
   static bool isValidBunnyHlsUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return false;
-    return uri.host.toLowerCase().endsWith('.b-cdn.net') && url.endsWith('.m3u8');
+    return uri.host.toLowerCase().endsWith('.b-cdn.net') &&
+        url.toLowerCase().endsWith('.m3u8');
   }
 
   static String? extractBunnyVideoId(String url) =>
@@ -60,19 +61,93 @@ abstract final class VideoSource {
     final uri = Uri.tryParse(url);
     if (uri == null) return url;
     final params = Map<String, String>.from(uri.queryParameters)
-      ..['autoplay'] = 'false';
+      ..['autoplay'] = 'false'
+      ..['compactControls'] = 'true';
     return uri.replace(queryParameters: params).toString();
   }
 
+  /// Strip parameters (`video/mp4; codecs=…` → `video/mp4`).
+  static String normalizeMime(String? mimeType) {
+    if (mimeType == null || mimeType.isEmpty) return '';
+    return mimeType.split(';').first.trim().toLowerCase();
+  }
+
+  /// Optional headers for non-lesson attachments (e.g. chat). Lesson MP4 from
+  /// Prime CDN plays without custom headers — see [LessonMp4Diagnostics].
+  static const Map<String, String> playbackHttpHeaders = {
+    'Referer': 'https://primeacademy.education/',
+    'Accept': '*/*',
+  };
+
+  /// Parse URL for YouTube / embed / general use. Lesson progressive MP4 must
+  /// use [LessonMp4Diagnostics.playbackUrl] (no re-encode).
+  static Uri networkUri(String url) {
+    final parsed = Uri.parse(url.trim());
+    if (!parsed.hasScheme || parsed.host.isEmpty) return parsed;
+
+    final segments = parsed.pathSegments.map((segment) {
+      try {
+        return Uri.decodeComponent(segment);
+      } catch (_) {
+        return segment;
+      }
+    }).toList();
+
+    return Uri(
+      scheme: parsed.scheme,
+      userInfo: parsed.userInfo.isEmpty ? null : parsed.userInfo,
+      host: parsed.host,
+      port: parsed.hasPort ? parsed.port : null,
+      pathSegments: segments,
+      queryParameters:
+          parsed.queryParameters.isEmpty ? null : parsed.queryParameters,
+      fragment: parsed.fragment.isEmpty ? null : parsed.fragment,
+    );
+  }
+
   /// Same routing as web `VideoSection`:
-  /// mp4 mime → MP4, else YouTube URL → YouTube, else Bunny embed.
+  /// `mime === video/mp4` → MP4, else YouTube URL → YouTube, else Bunny embed.
+  ///
+  /// Progressive CDN lesson uploads are always stored as `video/mp4` with an
+  /// extensionless R2 key (`uploads/lessons/<id>`). If mime is missing but the
+  /// path is clearly a lesson upload key, treat as MP4 (API parity).
   static LessonVideoKind classify({
     required String? mimeType,
     required String? videoUrl,
   }) {
     if (videoUrl == null || videoUrl.isEmpty) return LessonVideoKind.none;
-    if (mimeType?.toLowerCase() == 'video/mp4') return LessonVideoKind.mp4;
+    final mime = normalizeMime(mimeType);
+
+    // Web checks exact `video/mp4`. Normalize strips charset/codecs only.
+    if (mime == 'video/mp4') return LessonVideoKind.mp4;
+
+    // Lesson CDN keys without mime still play as progressive MP4 on web when
+    // the dashboard uploaded an mp4 (mime is normally present).
+    final uri = Uri.tryParse(videoUrl);
+    if (mime.isEmpty &&
+        uri != null &&
+        uri.path.contains('/uploads/lessons/')) {
+      return LessonVideoKind.mp4;
+    }
+
     if (isValidYouTubeUrl(videoUrl)) return LessonVideoKind.youtube;
     return LessonVideoKind.embed;
+  }
+
+  /// Detect streaming container from URL for logging / future players.
+  static String detectFormatLabel(String? videoUrl, String? mimeType) {
+    final mime = normalizeMime(mimeType);
+    if (mime == 'video/mp4') return 'progressive-mp4';
+    if (mime == 'application/x-mpegurl' || mime == 'application/vnd.apple.mpegurl') {
+      return 'hls';
+    }
+    if (mime == 'application/dash+xml') return 'dash';
+    final url = (videoUrl ?? '').toLowerCase();
+    if (url.contains('.m3u8')) return 'hls';
+    if (url.contains('.mpd')) return 'dash';
+    if (isValidYouTubeUrl(videoUrl ?? '')) return 'youtube';
+    if (extractBunnyVideoId(videoUrl ?? '') != null) return 'bunny-embed';
+    if (url.contains('.mp4')) return 'progressive-mp4';
+    return 'unknown';
   }
 }

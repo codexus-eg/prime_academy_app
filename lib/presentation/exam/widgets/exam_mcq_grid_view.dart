@@ -28,13 +28,18 @@ class ExamMcqGridView extends StatelessWidget {
   final bool isMulti;
   final ValueChanged<int> onSelect;
 
-  /// Passage child questions: fill more of the width (still square).
+  /// Passage child questions: fill more of the width (still square for images).
   final bool expandSquares;
 
-  /// Web `max-h-37.5` / `lg:max-h-67.5` (rem×16).
+  /// Web `max-h-37.5` / `lg:max-h-67.5` (rem×16) — used as **minimum** for
+  /// text answers; cells grow taller when the option text needs more lines.
   static const _squareSm = 150.0;
   static const _squareLg = 270.0;
   static const _squarePassageMax = 240.0;
+
+  bool get _anyImage => question.answers.any(
+        (a) => a.imageUrl != null && a.imageUrl!.trim().isNotEmpty,
+      );
 
   int _crossAxisCount(double width) {
     final count = question.answers.length;
@@ -72,71 +77,125 @@ class ExamMcqGridView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.ltr,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: expandSquares ? AppSpacing.sm : AppSpacing.xxxl,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = MediaQuery.sizeOf(context).width;
-            final cols = _crossAxisCount(width);
-            final gap = AppSpacing.base;
-            final maxSquare = expandSquares
-                ? (width >= 1024 ? _squareLg : _squarePassageMax)
-                : (width >= 1024 ? _squareLg : _squareSm);
-            final fromWidth =
-                (constraints.maxWidth - gap * (cols - 1)) / cols;
-            final cellSize = math.min(fromWidth, maxSquare);
-            final gridWidth = cellSize * cols + gap * (cols - 1);
+      child: LayoutBuilder(
+        builder: (context, _) {
+          final screenWidth = MediaQuery.sizeOf(context).width;
+          // Wide side gutters shrink cells on phones and force mid-word wraps.
+          final horizontalPad = expandSquares
+              ? AppSpacing.sm
+              : screenWidth < 400
+                  ? AppSpacing.base
+                  : screenWidth < 768
+                      ? AppSpacing.xl
+                      : AppSpacing.xxxl;
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = screenWidth;
+                final cols = _crossAxisCount(width);
+                final gap = AppSpacing.base;
+                final maxSquare = expandSquares
+                    ? (width >= 1024 ? _squareLg : _squarePassageMax)
+                    : (width >= 1024 ? _squareLg : _squareSm);
+                final fromWidth =
+                    (constraints.maxWidth - gap * (cols - 1)) / cols;
+                final cellWidth = math.min(fromWidth, maxSquare);
+                final gridWidth = cellWidth * cols + gap * (cols - 1);
 
-            return Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: gridWidth,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: cols,
-                    crossAxisSpacing: gap,
-                    mainAxisSpacing: gap,
-                    // Force square cells (width == height).
-                    childAspectRatio: 1,
+                if (_anyImage) {
+                  return _squareGrid(
+                    gridWidth: gridWidth,
+                    cols: cols,
+                    gap: gap,
+                    cellWidth: cellWidth,
+                  );
+                }
+
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: gridWidth,
+                    child: Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (var index = 0;
+                            index < question.answers.length;
+                            index++)
+                          SizedBox(
+                            width: cellWidth,
+                            height: cellWidth,
+                            child: _optionAt(
+                              index,
+                              minHeight: cellWidth,
+                              fillParent: true,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                  itemCount: question.answers.length,
-                  itemBuilder: (context, index) {
-                    final answer = question.answers[index];
-                    final state = _stateFor(answer.id);
-                    final show = _shouldShow(answer.id);
-                    final disabled =
-                        isSubmitted && state == ExamAnswerState.idle;
-                    final displayTitle = answer.displayTitle;
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
 
-                    return AspectRatio(
-                      aspectRatio: 1,
-                      child: ExamAnswerOptionButton(
-                        option: ExamAnswerOption(
-                          text: displayTitle.isNotEmpty
-                              ? displayTitle
-                              : answer.title,
-                          id: answer.id,
-                          imageUrl: answer.imageUrl,
-                        ),
-                        index: index,
-                        state: state,
-                        shouldShow: show,
-                        onTap: (!ready || disabled)
-                            ? null
-                            : () => onSelect(answer.id),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            );
-          },
+  Widget _squareGrid({
+    required double gridWidth,
+    required int cols,
+    required double gap,
+    required double cellWidth,
+  }) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(
+        width: gridWidth,
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            crossAxisSpacing: gap,
+            mainAxisSpacing: gap,
+            childAspectRatio: 1,
+          ),
+          itemCount: question.answers.length,
+          itemBuilder: (context, index) => AspectRatio(
+            aspectRatio: 1,
+            child: _optionAt(index, minHeight: cellWidth, fillParent: true),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _optionAt(
+    int index, {
+    required double minHeight,
+    required bool fillParent,
+  }) {
+    final answer = question.answers[index];
+    final state = _stateFor(answer.id);
+    final show = _shouldShow(answer.id);
+    final disabled = isSubmitted && state == ExamAnswerState.idle;
+    final displayTitle = answer.displayTitle;
+
+    return ExamAnswerOptionButton(
+      option: ExamAnswerOption(
+        text: displayTitle.isNotEmpty ? displayTitle : answer.title,
+        id: answer.id,
+        imageUrl: answer.imageUrl,
+      ),
+      index: index,
+      state: state,
+      shouldShow: show,
+      minHeight: minHeight,
+      fillParent: fillParent,
+      onTap: (!ready || disabled) ? null : () => onSelect(answer.id),
     );
   }
 }

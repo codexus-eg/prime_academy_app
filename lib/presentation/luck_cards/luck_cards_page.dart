@@ -297,18 +297,58 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     );
   }
 
-  void _onTextSubmit(String text) {
+  Future<void> _onTextSubmit(String text) async {
     if (_answered || _activeCardIndex == null) return;
     final card = _activeCard;
-    if (card == null) return;
+    if (card == null || _attempt == null) return;
     final answers = [text];
+
+    if (card.question is KnowledgeEssayQuestion) {
+      await _submitEssayViaApi(answers);
+      return;
+    }
+
     final correct =
         KnowledgeAnswerValidation.isCorrect(card.question, answers);
-    _finalizeAnswer(
+    await _finalizeAnswer(
       correct: correct,
       selectedIndex: null,
       answers: answers,
     );
+  }
+
+  /// Essay grading comes from the API (`KnowledgeAnswerResult.correct`).
+  Future<void> _submitEssayViaApi(List<String> answers) async {
+    final card = _activeCard;
+    if (card == null || _attempt == null) return;
+
+    _stopTimer();
+    setState(() => _answered = true);
+
+    try {
+      final result = await KnowledgeQuizApi.submitAnswer(
+        quizId: widget.quizId,
+        attemptId: _attempt!.attemptId,
+        questionId: card.question.id,
+        type: card.question.type,
+        answers: answers,
+        index: card.deckIndex,
+      );
+      if (!mounted) return;
+
+      await _finalizeAnswer(
+        correct: result.correct,
+        selectedIndex: null,
+        answers: answers,
+        knowledgeApiResult: result,
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _answered = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   void _onLottieAnimationComplete() {
@@ -343,11 +383,14 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     required bool correct,
     required int? selectedIndex,
     required Object answers,
+    KnowledgeAnswerResult? knowledgeApiResult,
   }) async {
     final card = _activeCard;
     if (card == null || _attempt == null) return;
 
-    _stopTimer();
+    if (knowledgeApiResult == null) {
+      _stopTimer();
+    }
     setState(() {
       _answered = true;
       _selectedAnswer = selectedIndex;
@@ -356,7 +399,9 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
         _results[_activeCardIndex!] =
             correct ? LuckCardPickResult.correct : LuckCardPickResult.wrong;
       }
-      if (correct) _totalPointsAwarded += card.question.points;
+      if (correct && knowledgeApiResult == null) {
+        _totalPointsAwarded += card.question.points;
+      }
     });
 
     if (correct) {
@@ -372,32 +417,43 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     await Future.delayed(AppDurations.luckAnswerDelay);
     if (!mounted) return;
 
-    try {
-      final result = await KnowledgeQuizApi.submitAnswer(
-        quizId: widget.quizId,
-        attemptId: _attempt!.attemptId,
-        questionId: card.question.id,
-        type: card.question.type,
-        answers: answers,
-        index: card.deckIndex,
-      );
-
-      if (!mounted) return;
-
-      if (result.totalPointsAwarded != null) {
-        _totalPointsAwarded = result.totalPointsAwarded!;
-      } else if (result.awardedPoints > 0) {
-
-      }
-
-      setState(() => _questionsLeft = max(0, _questionsLeft - 1));
-    } on ApiException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
+    if (knowledgeApiResult == null) {
+      try {
+        final result = await KnowledgeQuizApi.submitAnswer(
+          quizId: widget.quizId,
+          attemptId: _attempt!.attemptId,
+          questionId: card.question.id,
+          type: card.question.type,
+          answers: answers,
+          index: card.deckIndex,
         );
+
+        if (!mounted) return;
+
+        if (result.totalPointsAwarded != null) {
+          _totalPointsAwarded = result.totalPointsAwarded!;
+        }
+      } on ApiException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(error.message)),
+          );
+        }
+      }
+    } else {
+      if (knowledgeApiResult.totalPointsAwarded != null) {
+        setState(() {
+          _totalPointsAwarded = knowledgeApiResult.totalPointsAwarded!;
+        });
+      } else if (knowledgeApiResult.awardedPoints > 0) {
+        setState(() {
+          _totalPointsAwarded += knowledgeApiResult.awardedPoints;
+        });
       }
     }
+
+    if (!mounted) return;
+    setState(() => _questionsLeft = max(0, _questionsLeft - 1));
 
     await _waitForFeedbackEffect();
     if (!mounted) return;

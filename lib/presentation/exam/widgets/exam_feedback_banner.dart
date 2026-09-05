@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_durations.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/system_bottom_inset.dart';
 
 class ExamFeedbackBanner extends StatefulWidget {
   const ExamFeedbackBanner({
@@ -79,92 +80,95 @@ class _ExamFeedbackBannerState extends State<ExamFeedbackBanner>
       left: 0,
       right: 0,
       bottom: 0,
-      child: SlideTransition(
-        position: _slide,
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xB30A1128),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+      child: BottomDockedSafeArea(
+        backgroundColor: const Color(0xB30A1128),
+        child: SlideTransition(
+          position: _slide,
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xB30A1128),
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x99000000),
+                      offset: Offset(0, -8),
+                      blurRadius: 32,
+                    ),
+                  ],
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x99000000),
-                    offset: Offset(0, -8),
-                    blurRadius: 32,
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: isCorrect
-                              ? [
-                                  const Color(0x664ADE80),
-                                  const Color(0x3316A34A),
-                                ]
-                              : [
-                                  const Color(0x66F87171),
-                                  const Color(0x33DC2626),
-                                ],
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: isCorrect
+                                ? [
+                                    const Color(0x664ADE80),
+                                    const Color(0x3316A34A),
+                                  ]
+                                : [
+                                    const Color(0x66F87171),
+                                    const Color(0x33DC2626),
+                                  ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            accent.withValues(alpha: 0.15),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 64,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _message.$2,
-                          color: accent,
-                          size: 24,
-                          shadows: [
-                            Shadow(
-                              color: accent.withValues(alpha: 0.6),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _message.$1,
-                          style: AppTypography.bodyLg.copyWith(
-                            color: AppColors.onDark,
-                            fontWeight: AppFonts.bold,
-                            shadows: const [
-                              Shadow(
-                                color: Color(0x66000000),
-                                blurRadius: 4,
-                              ),
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            colors: [
+                              accent.withValues(alpha: 0.15),
+                              Colors.transparent,
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(
+                      height: 64,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _message.$2,
+                            color: accent,
+                            size: 24,
+                            shadows: [
+                              Shadow(
+                                color: accent.withValues(alpha: 0.6),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _message.$1,
+                            style: AppTypography.bodyLg.copyWith(
+                              color: AppColors.onDark,
+                              fontWeight: AppFonts.bold,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0x66000000),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

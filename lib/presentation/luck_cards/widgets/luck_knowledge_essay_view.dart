@@ -5,18 +5,23 @@ import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/answers_direction.dart';
 import '../../../data/quizzes/knowledge_quiz_question.dart';
+import '../../quiz/widgets/knowledge_essay_answer_reveal.dart';
 
 class LuckKnowledgeEssayView extends StatefulWidget {
   const LuckKnowledgeEssayView({
     super.key,
     required this.question,
     required this.answered,
+    this.isCorrect,
     required this.onSubmit,
   });
 
   final KnowledgeEssayQuestion question;
   final bool answered;
+  /// Parent grade after submit (same validation as web).
+  final bool? isCorrect;
   final ValueChanged<String> onSubmit;
 
   @override
@@ -29,7 +34,8 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
 
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  bool? _localCorrect;
+
+  bool? get _gradedCorrect => widget.isCorrect;
 
   @override
   void initState() {
@@ -44,7 +50,6 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.question.id != widget.question.id) {
       _controller.clear();
-      setState(() => _localCorrect = null);
     }
   }
 
@@ -68,14 +73,6 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
     if (widget.answered) return;
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-
-    final correct = widget.question.markAllAnswersCorrect ||
-        widget.question.correctAnswers.any(
-          (answer) =>
-              answer.title.trim().toLowerCase() == text.toLowerCase(),
-        );
-
-    setState(() => _localCorrect = correct);
     widget.onSubmit(text);
   }
 
@@ -88,15 +85,19 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
     return true;
   }
 
+  /// After submit: always reveal model answer; green when correct, red when wrong.
   bool get _showCorrectAnswer =>
-      widget.answered &&
-      _localCorrect != null &&
-      (_localCorrect == false || widget.question.markAllAnswersCorrect);
+      widget.answered && _gradedCorrect != null;
+
+  bool get _useGreenRevealTheme {
+    final graded = _gradedCorrect;
+    return (graded ?? false) || widget.question.markAllAnswersCorrect;
+  }
 
   ({Color border, Color fill}) _inputColors() {
-    if (widget.answered && _localCorrect != null) {
-      final success =
-          _localCorrect! || widget.question.markAllAnswersCorrect;
+    final graded = _gradedCorrect;
+    if (widget.answered && graded != null) {
+      final success = graded || widget.question.markAllAnswersCorrect;
       return success
           ? (
               border: const Color(0xFF22C55E),
@@ -120,6 +121,7 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
     final inputColors = _inputColors();
     final canSubmit = _controller.text.trim().isNotEmpty;
     final fieldStyle = AppTypography.bodyLg.copyWith(color: Colors.white);
+    final direction = widget.question.answersDirection;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: _maxWidth),
@@ -127,46 +129,11 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_showCorrectAnswer) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.base,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: widget.question.markAllAnswersCorrect
-                    ? const Color(0x2614532D)
-                    : const Color(0x267F1D1D),
-                borderRadius: AppRadius.borderTailwindXl,
-                border: Border.all(
-                  color: widget.question.markAllAnswersCorrect
-                      ? const Color(0x6622C55E)
-                      : const Color(0x66EF4444),
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'الإجابة الصحيحة:',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodySm.copyWith(
-                      color: widget.question.markAllAnswersCorrect
-                          ? const Color(0xFF4ADE80)
-                          : const Color(0xFFF87171),
-                      fontWeight: AppFonts.semibold,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  for (final answer in widget.question.correctAnswers)
-                    Text(
-                      answer.title,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodySm.copyWith(
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                ],
-              ),
+            KnowledgeEssayAnswerReveal(
+              correctTitles:
+                  widget.question.correctAnswers.map((a) => a.title),
+              useGreenTheme: _useGreenRevealTheme,
+              answersDirection: direction,
             ),
             const SizedBox(height: AppSpacing.base),
           ],
@@ -199,7 +166,8 @@ class _LuckKnowledgeEssayViewState extends State<LuckKnowledgeEssayView> {
                   enabled: !widget.answered,
                   maxLines: null,
                   expands: true,
-                  textAlign: TextAlign.right,
+                  textDirection: direction.textDirection,
+                  textAlign: direction.textAlign,
                   textAlignVertical: TextAlignVertical.top,
                   style: fieldStyle,
                   cursorColor: Colors.white,

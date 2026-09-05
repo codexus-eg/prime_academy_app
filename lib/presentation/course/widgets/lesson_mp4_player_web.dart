@@ -8,6 +8,8 @@ import 'package:web/web.dart' as web;
 import '../../../core/theme/app_radius.dart';
 import '../../../core/utils/lesson_playback_tracker.dart';
 import '../../../core/utils/video_progress.dart';
+import '../../../core/utils/video_source.dart';
+import 'lesson_mp4_html.dart';
 import 'lesson_video_chrome.dart';
 import 'lesson_video_fullscreen.dart';
 
@@ -16,6 +18,7 @@ class LessonMp4Player extends StatefulWidget {
     super.key,
     required this.videoUrl,
     this.thumbnailUrl,
+    this.mimeType,
     this.lessonId,
     this.initialPositionSeconds = 0,
     this.onProgressUpdate,
@@ -25,6 +28,7 @@ class LessonMp4Player extends StatefulWidget {
 
   final String videoUrl;
   final String? thumbnailUrl;
+  final String? mimeType;
   final int? lessonId;
   final int initialPositionSeconds;
   final ValueChanged<int>? onProgressUpdate;
@@ -72,11 +76,18 @@ class _LessonMp4PlayerState extends State<LessonMp4Player> {
 
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
       final video = web.HTMLVideoElement()
-        ..src = widget.videoUrl
         ..controls = false
-        ..preload = 'metadata'
+        ..preload = 'none'
         ..setAttribute('playsinline', 'true')
         ..setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback');
+
+      final source = web.HTMLSourceElement()
+        ..src = VideoSource.networkUri(widget.videoUrl).toString()
+        ..type = () {
+          final mime = VideoSource.normalizeMime(widget.mimeType);
+          return mime.isEmpty ? 'video/mp4' : mime;
+        }();
+      video.append(source);
 
       video.style
         ..border = 'none'
@@ -127,12 +138,19 @@ class _LessonMp4PlayerState extends State<LessonMp4Player> {
     video.addEventListener(
       'error',
       ((web.Event _) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-            _error = 'تعذّر تشغيل الفيديو. تحقّق من الاتصال أو أعد المحاولة.';
-          });
-        }
+        if (!mounted) return;
+        final code = switch (video.error?.code) {
+          1 => 'aborted',
+          2 => 'network',
+          3 => 'decode',
+          4 => 'src_not_supported',
+          _ => 'unknown',
+        };
+        debugPrint('[LessonMp4:web] media error code=$code url=${widget.videoUrl}');
+        setState(() {
+          _loading = false;
+          _error = LessonMp4Html.userMessageForError(code);
+        });
       }).toJS,
     );
     video.addEventListener(
@@ -186,7 +204,16 @@ class _LessonMp4PlayerState extends State<LessonMp4Player> {
       _loading = true;
       _error = null;
     });
-    video.src = widget.videoUrl;
+    while (video.firstChild != null) {
+      video.removeChild(video.firstChild!);
+    }
+    final source = web.HTMLSourceElement()
+      ..src = VideoSource.networkUri(widget.videoUrl).toString()
+      ..type = () {
+        final mime = VideoSource.normalizeMime(widget.mimeType);
+        return mime.isEmpty ? 'video/mp4' : mime;
+      }();
+    video.append(source);
     final poster = widget.thumbnailUrl;
     if (poster != null && poster.isNotEmpty) video.poster = poster;
     video.load();

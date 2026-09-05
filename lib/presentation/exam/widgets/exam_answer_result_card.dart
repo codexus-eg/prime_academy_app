@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/answers_direction.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 
 /// Mirrors web `AnswerResultCard`: replaces the question title after submit
@@ -16,17 +17,28 @@ class ExamAnswerResultCard extends StatelessWidget {
     required this.isCorrect,
     required this.answers,
     this.showAsFillChars = false,
+    this.answersDirection,
   });
 
   final bool isCorrect;
   final List<String> answers;
   final bool showAsFillChars;
+  final AnswersDirection? answersDirection;
 
   @override
   Widget build(BuildContext context) {
     final accent = isCorrect ? _ResultAccent.correct : _ResultAccent.incorrect;
     final sample = answers.isEmpty ? '' : answers.first;
-    final rtl = QuizHtmlText.detectTextDirection(sample) == TextDirection.rtl;
+    final configured = answersDirection?.textDirection;
+    final rtl = configured == TextDirection.rtl ||
+        (configured == null &&
+            QuizHtmlText.detectTextDirection(sample) == TextDirection.rtl);
+    final answerTextDirection =
+        configured ?? QuizHtmlText.detectTextDirection(sample);
+    final answerTextAlign = answersDirection?.textAlign ??
+        (answerTextDirection == TextDirection.rtl
+            ? TextAlign.right
+            : TextAlign.left);
     final badgeLabel = rtl
         ? (isCorrect ? 'إجابة صحيحة' : 'إجابة خاطئة')
         : (isCorrect ? 'Correct' : 'Incorrect');
@@ -162,6 +174,7 @@ class ExamAnswerResultCard extends StatelessWidget {
                                 if (showAsFillChars)
                                   _FillAnswerChars(
                                     answer: answers.isEmpty ? '' : answers.first,
+                                    textDirection: answerTextDirection,
                                   )
                                 else
                                   for (final answer in answers)
@@ -169,11 +182,8 @@ class ExamAnswerResultCard extends StatelessWidget {
                                       padding: const EdgeInsets.only(bottom: 8),
                                       child: Text(
                                         answer,
-                                        textAlign: TextAlign.center,
-                                        textDirection:
-                                            QuizHtmlText.detectTextDirection(
-                                          answer,
-                                        ),
+                                        textAlign: answerTextAlign,
+                                        textDirection: answerTextDirection,
                                         style: AppTypography.custom(
                                           fontSize: answerFontSize,
                                           fontWeight: AppFonts.regular,
@@ -329,50 +339,58 @@ class _ResultHexPainter extends CustomPainter {
 }
 
 class _FillAnswerChars extends StatelessWidget {
-  const _FillAnswerChars({required this.answer});
+  const _FillAnswerChars({
+    required this.answer,
+    required this.textDirection,
+  });
 
   final String answer;
+  final TextDirection textDirection;
 
   @override
   Widget build(BuildContext context) {
     final chars = answer.split('');
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var i = 0; i < chars.length; i++)
-          if (chars[i] == ' ')
-            const SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(
-                Icons.horizontal_rule_rounded,
-                color: Color(0x4DFFFFFF),
-                size: 28,
-              ),
-            )
-          else
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0x6614532D),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF4ADE80), width: 2),
-              ),
-              child: Text(
-                chars[i],
-                style: const TextStyle(
-                  color: Color(0xFF4ADE80),
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+    return Directionality(
+      textDirection: textDirection,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var i = 0; i < chars.length; i++)
+            if (chars[i] == ' ')
+              const SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(
+                  Icons.horizontal_rule_rounded,
+                  color: Color(0x4DFFFFFF),
+                  size: 28,
+                ),
+              )
+            else
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0x6614532D),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF4ADE80), width: 2),
+                ),
+                child: Text(
+                  chars[i],
+                  textDirection: textDirection,
+                  style: const TextStyle(
+                    color: Color(0xFF4ADE80),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-      ],
+        ],
+      ),
     );
   }
 }

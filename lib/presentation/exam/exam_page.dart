@@ -6,6 +6,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/network/api_client.dart';
+import '../../data/auth/auth_session.dart';
+import '../../data/students/student_awards_cache.dart';
+import '../../data/students/students_api.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_durations.dart';
 import '../../core/theme/app_fonts.dart';
@@ -86,6 +89,7 @@ class _ExamPageState extends State<ExamPage> {
   int? _selectedMcqId;
   bool _submitted = false;
   bool? _lastAnswerCorrect;
+  int _gradeResetToken = 0;
   int _confettiTrigger = 0;
   int _lottieTrigger = 0;
   int _celebrationClearToken = 0;
@@ -340,6 +344,7 @@ class _ExamPageState extends State<ExamPage> {
     required String questionId,
     required String type,
     required Object answers,
+    bool? localCorrect,
   }) async {
     if (_submitting) return;
     _submitting = true;
@@ -352,10 +357,14 @@ class _ExamPageState extends State<ExamPage> {
         setState(() {
           _selectedMcqId = ids.first is int ? ids.first as int : int.tryParse('${ids.first}');
           _submitted = true;
+          _lastAnswerCorrect = null;
         });
       }
     } else {
-      setState(() => _submitted = true);
+      setState(() {
+        _submitted = true;
+        _lastAnswerCorrect = type == 'essay' ? null : localCorrect;
+      });
     }
 
     try {
@@ -369,6 +378,7 @@ class _ExamPageState extends State<ExamPage> {
       if (!mounted) return;
 
       final isCorrect = response.result.correct;
+      // Set grade before celebration so essay/fill UI uses the same value.
       setState(() {
         _lastAnswerCorrect = isCorrect;
         _feedbackKey++;
@@ -380,21 +390,9 @@ class _ExamPageState extends State<ExamPage> {
       _triggerCelebration(isCorrect);
 
       if (response.result.completed) {
-        setState(() {
-          _finishedCorrect = response.result.correctCount ?? _correctCount;
-          _finishedIncorrect = response.result.inCorrectCount ??
-              (_questionsCount - (response.result.correctCount ?? _correctCount));
-          _earnedPoints = response.result.pointsAwarded ?? 0;
-          _totalPoints = response.result.score ?? _questionsCount;
-          _hasLastChance = response.result.hasLastChance;
-          _answeredQuestions = response.answeredQuestions;
-        });
-        if (response.answeredQuestions.isEmpty) {
-          await _ensureAnsweredQuestions();
-        }
         await _holdFeedback(isCorrect);
         if (!mounted) return;
-        setState(() => _phase = _ExamPhase.finished);
+        await _applyCompletionFromApi(response);
         return;
       }
 
@@ -410,10 +408,19 @@ class _ExamPageState extends State<ExamPage> {
         return;
       }
 
+      if (_index >= _questions.length - 1) {
+        await _finalizeFromServer();
+        return;
+      }
+
       await _goToNextQuestion();
     } on ApiException catch (error) {
       if (mounted) {
-        setState(() => _submitted = false);
+        setState(() {
+          _submitted = false;
+          _lastAnswerCorrect = null;
+          _gradeResetToken++;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.message)),
         );
@@ -427,18 +434,100 @@ class _ExamPageState extends State<ExamPage> {
     await _goToNextQuestion();
   }
 
-  Future<void> _goToNextQuestion() async {
-    final nextIndex = _index + 1;
-    if (nextIndex >= _questions.length) {
+  Future<void> _applyCompletionFromApi(UnitQuizSubmitResponse response) async {
+    setState(() {
+      _finishedCorrect = response.result.correctCount ?? _correctCount;
+      _finishedIncorrect = response.result.inCorrectCount ??
+          (_questionsCount - (response.result.correctCount ?? _correctCount));
+      _earnedPoints = response.result.pointsAwarded ?? 0;
+      _totalPoints = response.result.score ?? _questionsCount;
+      _hasLastChance = response.result.hasLastChance;
+      _answeredQuestions = response.answeredQuestions;
+      _phase = _ExamPhase.finished;
+    });
+    if (response.answeredQuestions.isEmpty) {
       await _ensureAnsweredQuestions();
+    }
+    await _refreshAfterQuizCompletion();
+  }
+
+  Future<void> _finalizeFromServer() async {
+    if (_phase == _ExamPhase.finished) return;
+    if (widget.quizId <= 0 || _attemptId.isEmpty) {
+      _showCompletionSyncError();
+      return;
+    }
+
+    final reviewAttemptId =
+        _reviewAttemptId.isNotEmpty ? _reviewAttemptId : _attemptId;
+
+    try {
+      final review = await UnitQuizApi.getFirstAttemptReview(
+        quizId: widget.quizId,
+        attemptId: reviewAttemptId,
+      );
       if (!mounted) return;
+
+      final serverCompleted = review.correctCount != null ||
+          review.pointsAwarded != null ||
+          review.answeredQuestions.isNotEmpty;
+
+      if (!serverCompleted) {
+        _showCompletionSyncError();
+        return;
+      }
+
       setState(() {
-        _finishedCorrect = _correctCount;
-        _finishedIncorrect = _questionsCount - _correctCount;
-        _earnedPoints = _correctCount;
-        _totalPoints = _questionsCount;
+        _finishedCorrect = review.correctCount ?? _correctCount;
+        _finishedIncorrect =
+            review.inCorrectCount ?? (_questionsCount - _correctCount);
+        _earnedPoints = review.pointsAwarded ?? 0;
+        _totalPoints = review.score ?? _questionsCount;
+        _answeredQuestions = review.answeredQuestions;
         _phase = _ExamPhase.finished;
       });
+      await _refreshAfterQuizCompletion();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      _showCompletionSyncError(message: error.message);
+    } catch (error, stackTrace) {
+      debugPrint('ExamPage._finalizeFromServer failed: $error\n$stackTrace');
+      if (!mounted) return;
+      _showCompletionSyncError();
+    }
+  }
+
+  Future<void> _refreshAfterQuizCompletion() async {
+    StudentAwardsCache.clear();
+    final user = await AuthSession.load();
+    if (user == null || user.role != 1) return;
+
+    try {
+      final awards = await StudentsApi.fetchStudentAwards(user.id);
+      StudentAwardsCache.store(awards);
+    } catch (error, stackTrace) {
+      debugPrint('ExamPage._refreshAfterQuizCompletion failed: $error\n$stackTrace');
+    }
+  }
+
+  void _showCompletionSyncError({String? message}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message ??
+              'تعذّر تأكيد إنهاء الاختبار. تحقق من الاتصال وحاول مرة أخرى.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _goToNextQuestion() async {
+    if (_phase == _ExamPhase.finished) return;
+
+    final nextIndex = _index + 1;
+    if (nextIndex >= _questions.length) {
+      await _finalizeFromServer();
       return;
     }
 
@@ -521,15 +610,7 @@ class _ExamPageState extends State<ExamPage> {
 
   Future<void> _advanceQuestion() async {
     if (_index >= _questions.length - 1) {
-      await _ensureAnsweredQuestions();
-      if (!mounted) return;
-      setState(() {
-        _finishedCorrect = _correctCount;
-        _finishedIncorrect = _questionsCount - _correctCount;
-        _earnedPoints = _correctCount;
-        _totalPoints = _questionsCount;
-        _phase = _ExamPhase.finished;
-      });
+      await _finalizeFromServer();
       return;
     }
 
@@ -630,6 +711,8 @@ class _ExamPageState extends State<ExamPage> {
               progressPercent: _answeredProgressPercent,
               questionReady: _questionReady,
               passageChildIndex: _passageChildIndex,
+              gradedCorrect: _lastAnswerCorrect,
+              gradeResetToken: _gradeResetToken,
               onPassageChildChanged: (i) => setState(() {
                 _passageChildIndex = i;
                 _selectedMcqId = null;
@@ -648,6 +731,7 @@ class _ExamPageState extends State<ExamPage> {
                 questionId: questionId,
                 type: type,
                 answers: answers,
+                localCorrect: localCorrect,
               ),
               onMarkPassageChild: ({
                 required questionId,
@@ -659,7 +743,10 @@ class _ExamPageState extends State<ExamPage> {
                 type: type,
                 answers: answers,
               ),
-              onPassageComplete: _goToNextQuestion,
+              onPassageComplete: () async {
+                if (_phase == _ExamPhase.finished) return;
+                await _goToNextQuestion();
+              },
             ),
           ),
           if (q is UnitPassageQuestion && q.childQuestions.isEmpty)

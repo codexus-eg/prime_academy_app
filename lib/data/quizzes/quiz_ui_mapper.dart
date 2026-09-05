@@ -22,6 +22,7 @@ abstract final class QuizUiMapper {
       QuizMcqQuestion mcq => ClassificationMcqQuestion(
           id: mcq.id,
           title: mcq.title,
+          answersDirection: mcq.answersDirection,
           answers: [
             for (final a in mcq.answers)
               ClassificationAnswer(
@@ -35,6 +36,7 @@ abstract final class QuizUiMapper {
       QuizFillBlankQuestion fill => ClassificationFillBlankQuestion(
           id: fill.id,
           title: fill.title,
+          answersDirection: fill.answersDirection,
           correctAnswer: fill.correctAnswers.isEmpty
               ? ''
               : fill.correctAnswers.first.title,
@@ -42,6 +44,7 @@ abstract final class QuizUiMapper {
       QuizMatchingQuestion match => ClassificationMatchingQuestion(
           id: match.id,
           title: match.title,
+          answersDirection: match.answersDirection,
           prompts: [
             for (final prompt in match.prompts)
               ClassificationMatchingPrompt(

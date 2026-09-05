@@ -38,9 +38,12 @@ abstract final class NotificationIcons {
   static Widget forType(
     NotificationType type, {
     required bool isUnread,
+    Color? color,
   }) {
-    final color =
-        isUnread ? NotificationStyles.accentUnread : NotificationStyles.iconRead;
+    final resolved = color ??
+        (isUnread
+            ? NotificationStyles.accentUnread
+            : NotificationStyles.iconRead);
     const size = 20.0;
 
     switch (type) {
@@ -48,7 +51,7 @@ abstract final class NotificationIcons {
         return LessonActionIcons.svg(
           LessonActionIcons.comment,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.newQuestionPoint:
       case NotificationType.newLessonTrophy:
@@ -56,45 +59,45 @@ abstract final class NotificationIcons {
         return LessonActionIcons.svg(
           LessonActionIcons.trophy,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.moduleMaterial:
         return LessonActionIcons.svg(
           LessonActionIcons.bookOpen,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.externalSource:
         return Icon(
           Icons.open_in_new_rounded,
           size: 16,
-          color: color,
+          color: resolved,
         );
       case NotificationType.newLesson:
         return SvgPicture.asset(
           'assets/icons/incomplete/youtube.svg',
           width: size,
           height: size,
-          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+          colorFilter: ColorFilter.mode(resolved, BlendMode.srcIn),
         );
       case NotificationType.newQuiz:
         return SvgPicture.asset(
           'assets/icons/incomplete/exam_fill.svg',
           width: size,
           height: size,
-          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+          colorFilter: ColorFilter.mode(resolved, BlendMode.srcIn),
         );
       case NotificationType.newClassificationQuizPoints:
         return LessonActionIcons.svg(
           LessonActionIcons.rankingStar,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.newLessonCardsCompleted:
         return LessonActionIcons.svg(
           LessonActionIcons.cards,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.newKnowledgeQuizPoints:
         return Opacity(
@@ -102,7 +105,7 @@ abstract final class NotificationIcons {
           child: MysteryCardIcon(
             size: 25,
             cardColor: isUnread
-                ? NotificationStyles.accentUnread
+                ? (color ?? NotificationStyles.accentUnread)
                 : NotificationStyles.textBody,
             symbolColor: const Color(0xB3000000),
           ),
@@ -111,19 +114,19 @@ abstract final class NotificationIcons {
         return LessonActionIcons.svg(
           LessonActionIcons.checkmark,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.inactivityReminder:
         return Icon(
           Icons.schedule_rounded,
           size: size,
-          color: color,
+          color: resolved,
         );
       case NotificationType.unknown:
         return Icon(
           Icons.notifications_rounded,
           size: size,
-          color: color,
+          color: resolved,
         );
     }
   }

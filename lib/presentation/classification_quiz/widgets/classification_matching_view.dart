@@ -9,6 +9,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/quiz_answer_image.dart';
+import '../../../core/widgets/quiz_option_text.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../models/classification_question.dart';
 import 'classification_matching_palette.dart';
@@ -568,61 +569,68 @@ class _DraggablePromptBox extends StatelessWidget {
 
     if (disabled) return box;
 
-    return Draggable<int>(
-      data: promptId,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      maxSimultaneousDrags: 1,
-      rootOverlay: true,
-      feedback: Material(
-        color: Colors.transparent,
-        elevation: 0,
-        child: Transform.scale(
-          scale: 1.05,
-          child: SizedBox(
-            width: slotWidth.clamp(72, 400),
-            height: slotHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                boxShadow: [
-                  BoxShadow(
-                    color: palette.border.withValues(alpha: 0.55),
-                    blurRadius: 28,
-                    spreadRadius: 1,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final feedbackWidth = constraints.maxWidth;
+        final feedbackHeight = constraints.maxHeight;
+
+        return Draggable<int>(
+          data: promptId,
+          dragAnchorStrategy: childDragAnchorStrategy,
+          maxSimultaneousDrags: 1,
+          rootOverlay: true,
+          feedback: Material(
+            color: Colors.transparent,
+            elevation: 0,
+            child: SizedBox(
+              width: feedbackWidth,
+              height: feedbackHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.border.withValues(alpha: 0.55),
+                      blurRadius: 28,
+                      spreadRadius: 1,
+                    ),
+                    const BoxShadow(
+                      color: Color(0x66000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Opacity(
+                  opacity: 0.97,
+                  child: _OptionBox(
+                    title: title,
+                    imageUrl: imageUrl,
+                    anyImage: anyImage,
+                    palette: palette,
+                    matchStatus: matchStatus,
+                    disabled: false,
+                    highlighted: true,
+                    isDragging: true,
                   ),
-                  const BoxShadow(
-                    color: Color(0x66000000),
-                    blurRadius: 18,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: _OptionBox(
-                title: title,
-                imageUrl: imageUrl,
-                anyImage: anyImage,
-                palette: palette,
-                matchStatus: matchStatus,
-                disabled: false,
-                highlighted: true,
-                isDragging: true,
+                ),
               ),
             ),
           ),
-        ),
-      ),
 
-      childWhenDragging: const _EmptyPromptSlot(),
-      onDragStarted: () {
-        HapticFeedback.selectionClick();
-        onDragStarted(promptId);
+          childWhenDragging: const _EmptyPromptSlot(),
+          onDragStarted: () {
+            HapticFeedback.selectionClick();
+            onDragStarted(promptId);
+          },
+          onDragEnd: (details) =>
+              onDragFinished(promptId, accepted: details.wasAccepted),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.grab,
+            child: box,
+          ),
+        );
       },
-      onDragEnd: (details) =>
-          onDragFinished(promptId, accepted: details.wasAccepted),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.grab,
-        child: box,
-      ),
     );
   }
 }
@@ -752,17 +760,19 @@ class _OptionBox extends StatelessWidget {
               ),
             )
           else if (!hasImage && hasTitle)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Center(
-                child: QuizHtmlText(
-                  html: title,
-                  textAlign: TextAlign.center,
-                  baseStyle: AppTypography.bodyLg.copyWith(
-                    color: textColor,
-                    fontWeight: AppFonts.semibold,
-                    height: 1.3,
-                    fontSize: 16,
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Center(
+                  child: QuizOptionText(
+                    html: title,
+                    textAlign: TextAlign.center,
+                    baseStyle: AppTypography.bodyLg.copyWith(
+                      color: textColor,
+                      fontWeight: AppFonts.semibold,
+                      height: 1.3,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),

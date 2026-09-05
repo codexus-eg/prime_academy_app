@@ -8,8 +8,7 @@ class NavLink {
 
 abstract final class NavLinks {
   static const List<NavLink> links = [
-    NavLink(label: 'تواصل معنا', to: '/contact'),
     NavLink(label: 'من نحن', to: '/about'),
-    NavLink(label: 'الصفحة الرئيسية', to: '/home'),
+    NavLink(label: 'تواصل معنا', to: '/contact'),
   ];
 }

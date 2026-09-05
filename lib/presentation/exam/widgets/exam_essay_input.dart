@@ -4,7 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/quiz_html_text.dart';
+import '../../../core/utils/answers_direction.dart';
 
 class ExamEssayInput extends StatefulWidget {
   const ExamEssayInput({
@@ -12,6 +12,7 @@ class ExamEssayInput extends StatefulWidget {
     required this.questionTitle,
     required this.controller,
     required this.onAnswerChange,
+    this.answersDirection = AnswersDirection.rtl,
     this.isSubmitted = false,
     this.isCorrect,
     this.enabled = true,
@@ -20,6 +21,7 @@ class ExamEssayInput extends StatefulWidget {
   final String questionTitle;
   final TextEditingController controller;
   final ValueChanged<bool> onAnswerChange;
+  final AnswersDirection answersDirection;
   final bool isSubmitted;
   final bool? isCorrect;
   final bool enabled;
@@ -72,20 +74,12 @@ class _ExamEssayInputState extends State<ExamEssayInput> {
     setState(() {});
   }
 
-  TextDirection _resolveDirection(String text) {
-    final source = text.trim().isNotEmpty
-        ? text
-        : QuizHtmlText.plainText(widget.questionTitle);
-    return RegExp(r'[\u0600-\u06FF]').hasMatch(source)
-        ? TextDirection.rtl
-        : TextDirection.ltr;
-  }
-
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final mobile = width < 768;
-    final direction = _resolveDirection(widget.controller.text);
+    final direction = widget.answersDirection.textDirection;
+    final align = widget.answersDirection.textAlign;
     final showWrong = widget.isSubmitted && widget.isCorrect == false;
     final showCorrect = widget.isSubmitted && widget.isCorrect == true;
 
@@ -197,9 +191,7 @@ class _ExamEssayInputState extends State<ExamEssayInput> {
                         maxLines: null,
                         minLines: null,
                         textDirection: direction,
-                        textAlign: direction == TextDirection.rtl
-                            ? TextAlign.right
-                            : TextAlign.left,
+                        textAlign: align,
                         style: AppTypography.bodyLg.copyWith(
                           color: AppColors.onDark,
                           height: 1.5,

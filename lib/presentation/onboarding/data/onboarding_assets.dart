@@ -17,13 +17,13 @@ class OnboardingSlideData {
   const OnboardingSlideData({
     required this.title,
     required this.subtitle,
-    required this.gifAsset,
+    required this.visualAsset,
     this.titleAlign = TextAlign.center,
   });
 
   final String title;
   final String subtitle;
-  final String gifAsset;
+  final String visualAsset;
   final TextAlign titleAlign;
 }
 
@@ -32,18 +32,18 @@ abstract final class OnboardingSlides {
     OnboardingSlideData(
       title: 'مرحباً بك في برايم أكاديمي',
       subtitle: 'منصة تعليمية ذكية تساعدك على التعلم بأسلوب يناسبك',
-      gifAsset: OnboardingAssets.gifWelcome,
+      visualAsset: OnboardingAssets.gifWelcome,
     ),
     OnboardingSlideData(
       title: 'ابدأ بالتعلم مع برايم أكاديمي',
       subtitle: 'تدري شنو؟ النجاح صار مرررره سهل !',
-      gifAsset: OnboardingAssets.gifBookMobile,
+      visualAsset: OnboardingAssets.gifBookMobile,
     ),
     OnboardingSlideData(
       title: 'في برايم أكاديمي',
       subtitle:
           'لا تخاف تنسى الفيديوهات عندك، تعيدها متى ما تبي، ومرات قد ما تبي!',
-      gifAsset: OnboardingAssets.gifDeskScene,
+      visualAsset: OnboardingAssets.gifDeskScene,
     ),
   ];
 }

@@ -1,3 +1,5 @@
+import '../../core/utils/answers_direction.dart';
+import '../../core/utils/json_bool.dart';
 import 'quiz_models.dart';
 
 int _asInt(dynamic value, [int fallback = 0]) {
@@ -11,6 +13,7 @@ sealed class KnowledgeQuizQuestion {
     required this.id,
     required this.title,
     required this.points,
+    this.answersDirection = AnswersDirection.rtl,
     this.isAnswered = false,
     this.isCorrect,
     this.answerIndex,
@@ -19,6 +22,7 @@ sealed class KnowledgeQuizQuestion {
   final String id;
   final String title;
   final int points;
+  final AnswersDirection answersDirection;
   final bool isAnswered;
   final bool? isCorrect;
   final int? answerIndex;
@@ -40,6 +44,7 @@ class KnowledgeMcqQuestion extends KnowledgeQuizQuestion {
     required super.points,
     required this.answers,
     required this.correctAnswerIds,
+    super.answersDirection,
     super.isAnswered,
     super.isCorrect,
     super.answerIndex,
@@ -59,6 +64,7 @@ class KnowledgeMcqQuestion extends KnowledgeQuizQuestion {
       points: mcq.points,
       answers: mcq.answers,
       correctAnswerIds: mcq.correctAnswerIds,
+      answersDirection: mcq.answersDirection,
       isAnswered: mcq.isAnswered,
       isCorrect: mcq.isCorrect,
       answerIndex: mcq.answerIndex,
@@ -73,6 +79,7 @@ class KnowledgeEssayQuestion extends KnowledgeQuizQuestion {
     required super.points,
     required this.correctAnswers,
     this.markAllAnswersCorrect = false,
+    super.answersDirection,
     super.isAnswered,
     super.isCorrect,
     super.answerIndex,
@@ -98,8 +105,9 @@ class KnowledgeEssayQuestion extends KnowledgeQuizQuestion {
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
       correctAnswers: correctAnswers,
-      markAllAnswersCorrect: json['mark_all_answers_correct'] == true,
-      isAnswered: json['isAnswered'] == true,
+      markAllAnswersCorrect: parseApiBool(json['mark_all_answers_correct']),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
+      isAnswered: parseApiBool(json['isAnswered']),
       isCorrect: json['isCorrect'] as bool?,
       answerIndex:
           json['answerIndex'] == null ? null : _asInt(json['answerIndex']),
@@ -113,6 +121,7 @@ class KnowledgeFillBlankQuestion extends KnowledgeQuizQuestion {
     required super.title,
     required super.points,
     required this.correctAnswers,
+    super.answersDirection,
     super.isAnswered,
     super.isCorrect,
     super.answerIndex,
@@ -140,6 +149,7 @@ class KnowledgeFillBlankQuestion extends KnowledgeQuizQuestion {
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
       correctAnswers: correctAnswers,
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       isAnswered: json['isAnswered'] == true,
       isCorrect: json['isCorrect'] as bool?,
       answerIndex:

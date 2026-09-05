@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/answers_direction.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../models/classification_question.dart';
 import 'classification_answer_palette.dart';
@@ -245,6 +246,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
     final letterFontSize = width >= 640 ? 30.0 : 24.0;
     final titleFontSize = width >= 640 ? 18.0 : 16.0;
     final showWrongReveal = _submitted && !_isCorrect;
+    final answerDirection = widget.question.answersDirection;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -283,7 +285,10 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
           child: Column(
             children: [
               if (showWrongReveal) ...[
-                _WrongAnswerReveal(chars: _chars),
+                _WrongAnswerReveal(
+                  chars: _chars,
+                  textDirection: answerDirection.textDirection,
+                ),
                 const SizedBox(height: 32),
               ],
               Stack(
@@ -335,7 +340,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
                     ),
 
                     child: Directionality(
-                      textDirection: TextDirection.ltr,
+                      textDirection: answerDirection.textDirection,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final tiles = <Widget>[];
@@ -380,6 +385,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
                                   controller: _controllers[i],
                                   focusNode: _focusNodes[i],
                                   enabled: !_submitted,
+                                  textDirection: answerDirection.textDirection,
                                   onChanged: (value) => _onChanged(i, value),
                                 ),
                               );
@@ -412,6 +418,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
   Widget _buildExamFillBlank(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final mobile = width < 768;
+    final answerDirection = widget.question.answersDirection;
 
     final boxSize = width >= 1024 ? 56.0 : 40.0;
     final showWrongContainer = _submitted && !_isCorrect;
@@ -419,7 +426,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
     final containerHeight = mobile ? 240.0 : 360.0;
 
     return Directionality(
-      textDirection: TextDirection.ltr,
+      textDirection: answerDirection.textDirection,
       child: Container(
         width: double.infinity,
         height: containerHeight,
@@ -495,6 +502,7 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
                     focusNode: _focusNodes[i],
                     enabled: !_submitted,
                     mobile: mobile,
+                    textDirection: answerDirection.textDirection,
                     onChanged: (value) => _onChanged(i, value),
                   ),
             ],
@@ -506,9 +514,13 @@ class _ClassificationFillBlankViewState extends State<ClassificationFillBlankVie
 }
 
 class _WrongAnswerReveal extends StatelessWidget {
-  const _WrongAnswerReveal({required this.chars});
+  const _WrongAnswerReveal({
+    required this.chars,
+    required this.textDirection,
+  });
 
   final List<String> chars;
+  final TextDirection textDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -546,7 +558,7 @@ class _WrongAnswerReveal extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Directionality(
-            textDirection: TextDirection.ltr,
+            textDirection: textDirection,
             child: Wrap(
               alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -626,6 +638,7 @@ class _LetterInput extends StatelessWidget {
     required this.focusNode,
     required this.enabled,
     required this.onChanged,
+    this.textDirection = TextDirection.ltr,
   });
 
   final double size;
@@ -636,6 +649,7 @@ class _LetterInput extends StatelessWidget {
   final FocusNode focusNode;
   final bool enabled;
   final ValueChanged<String> onChanged;
+  final TextDirection textDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -709,7 +723,7 @@ class _LetterInput extends StatelessWidget {
             focusNode: focusNode,
             enabled: enabled,
             textAlign: TextAlign.center,
-            textDirection: TextDirection.ltr,
+            textDirection: textDirection,
             maxLength: 2,
             cursorColor: colors.$4,
             style: TextStyle(
@@ -765,6 +779,7 @@ class _ExamLetterInput extends StatefulWidget {
     required this.enabled,
     required this.onChanged,
     this.mobile = false,
+    this.textDirection = TextDirection.ltr,
   });
 
   final double size;
@@ -774,6 +789,7 @@ class _ExamLetterInput extends StatefulWidget {
   final bool enabled;
   final ValueChanged<String> onChanged;
   final bool mobile;
+  final TextDirection textDirection;
 
   @override
   State<_ExamLetterInput> createState() => _ExamLetterInputState();
@@ -898,7 +914,7 @@ class _ExamLetterInputState extends State<_ExamLetterInput> {
           focusNode: widget.focusNode,
           enabled: widget.enabled,
           textAlign: TextAlign.center,
-          textDirection: TextDirection.ltr,
+          textDirection: widget.textDirection,
           maxLength: 2,
           cursorColor: AppColors.onDark,
           cursorWidth: 1.5,

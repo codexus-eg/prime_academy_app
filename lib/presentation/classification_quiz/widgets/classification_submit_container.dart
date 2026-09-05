@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/system_bottom_inset.dart';
 import '../data/classification_assets.dart';
 import '../models/classification_level.dart';
 
@@ -25,6 +26,10 @@ class ClassificationSubmitContainer extends StatefulWidget {
   final ClassificationLevel? nextLevel;
   final bool? isCorrect;
   final int feedbackKey;
+
+  /// Height of the level bar content (padding + badges), excluding system inset.
+  /// Used by the quiz page to keep scroll content above this docked bar.
+  static const double barContentHeight = 128;
 
   @override
   State<ClassificationSubmitContainer> createState() =>
@@ -175,7 +180,6 @@ class _ClassificationSubmitContainerState
         ),
       ),
       child: Padding(
-
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         child: Directionality(
           textDirection: TextDirection.ltr,
@@ -254,15 +258,20 @@ class _ClassificationSubmitContainerState
       ),
     );
 
-    if (mobile) return bar;
-
-    return ClipRect(
-      child: BackdropFilter(
-
-        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: bar,
-      ),
+    final docked = BottomDockedSafeArea(
+      // Match the mobile bar fill so the system nav region is not a gap.
+      backgroundColor: mobile ? const Color(0xEB0A0E1C) : AppColors.mainBg3,
+      child: mobile
+          ? bar
+          : ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                child: bar,
+              ),
+            ),
     );
+
+    return docked;
   }
 }
 

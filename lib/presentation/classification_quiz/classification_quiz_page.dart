@@ -8,7 +8,9 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_shadows.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/system_bottom_inset.dart';
 import '../../data/quizzes/classification_quiz_api.dart';
+import '../../data/quizzes/classification_quiz_completion_refresh.dart';
 import '../../data/quizzes/quiz_models.dart' hide ClassificationLevel;
 import '../../data/quizzes/quiz_ui_mapper.dart';
 import 'data/classification_sounds.dart';
@@ -69,10 +71,13 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
   VoidCallback? _submitHandler;
   var _matchingDragActive = false;
   ClassificationLevel? _levelUpLevel;
+  var _answerPipelineInFlight = false;
 
   ClassificationLevel? _currentLevel;
   List<ClassificationLevel> _levels = const [];
   List<ClassificationQuestion> _questions = const [];
+
+  static const _postFeedbackPause = Duration(milliseconds: 350);
 
   @override
   void initState() {
@@ -194,6 +199,12 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
     _feedbackEffectCompleter = null;
   }
 
+  Future<void> _waitMinimumFeedbackWindow() async {
+    await _waitForFeedbackEffect();
+    if (!mounted) return;
+    await Future<void>.delayed(_postFeedbackPause);
+  }
+
   void _onCorrectChanged(bool isCorrect) {
     _feedbackEffectCompleter = Completer<void>();
     setState(() {
@@ -208,21 +219,8 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
     }
   }
 
-  Future<void> _advanceAfterAnswer({
-    required String type,
-    required Object answers,
-  }) async {
-    await _waitForFeedbackEffect();
-    if (!mounted) return;
-
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-
-    await _submitToApi(type: type, answers: answers);
-  }
-
   Future<void> _onSelectMcq(int answerId) async {
-    if (_submitted || _attempt == null) return;
+    if (_submitted || _attempt == null || _answerPipelineInFlight) return;
     final question = _question as ClassificationMcqQuestion;
     final isCorrect = question.correctAnswerIds.contains(answerId);
     _feedbackEffectCompleter = Completer<void>();
@@ -240,68 +238,47 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
       unawaited(ClassificationSounds.playIncorrect());
     }
 
-    await _advanceAfterAnswer(
+    await _runAnswerPipeline(
       type: 'mcq',
       answers: [answerId],
     );
   }
 
   Future<void> _onFillBlankAnswered(String answer) async {
-    await _waitForFeedbackEffect();
-    if (!mounted) return;
-    await _submitToApi(type: 'fill-blank', answers: [answer]);
+    await _runAnswerPipeline(type: 'fill-blank', answers: [answer]);
   }
 
   Future<void> _onMatchingAnswered(Map<int, int> matches) async {
-    await _waitForFeedbackEffect();
-    if (!mounted) return;
     final payload = {
       for (final entry in matches.entries) '${entry.key}': entry.value,
     };
-    await _submitToApi(type: 'match', answers: payload);
+    await _runAnswerPipeline(type: 'match', answers: payload);
   }
 
-  Future<void> _submitToApi({
+  Future<void> _runAnswerPipeline({
     required String type,
     required Object answers,
   }) async {
-    if (_attempt == null) return;
+    if (_attempt == null || _answerPipelineInFlight) return;
+    _answerPipelineInFlight = true;
 
+    final feedbackFuture = _waitMinimumFeedbackWindow();
+    late final Future<ClassificationAnswerResult> apiFuture;
+    apiFuture = ClassificationQuizApi.submitAnswer(
+      quizId: widget.quizId,
+      attemptId: _attempt!.attemptId,
+      questionId: _question.id,
+      type: type,
+      answers: answers,
+    );
+
+    ClassificationAnswerResult? result;
     try {
-      final result = await ClassificationQuizApi.submitAnswer(
-        quizId: widget.quizId,
-        attemptId: _attempt!.attemptId,
-        questionId: _question.id,
-        type: type,
-        answers: answers,
-      );
-
-      if (!mounted) return;
-
-      if (result.level != null && result.level!.title != _level.title) {
-        final newLevel = QuizUiMapper.toUiLevel(result.level!);
-        setState(() {
-          _currentLevel = newLevel;
-          _levelUpLevel = newLevel;
-        });
-      }
-
-      setState(() => _answeredCount++);
-
-      if (result.completed || _index >= _questions.length - 1) {
-        setState(() => _phase = _ClassificationPhase.finished);
-        return;
-      }
-
-      setState(() {
-        _index++;
-        _selectedId = null;
-        _submitted = false;
-        _lastCorrect = null;
-        _canSubmit = false;
-        _submitHandler = null;
-        _matchingDragActive = false;
-      });
+      final outcomes = await Future.wait<Object?>([
+        feedbackFuture,
+        apiFuture,
+      ]);
+      result = outcomes[1] as ClassificationAnswerResult?;
     } on ApiException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -313,18 +290,79 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
         _lastCorrect = null;
         _canSubmit = false;
       });
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('فشل إرسال الإجابة، حاول مرة أخرى')),
+      );
+      setState(() {
+        _selectedId = null;
+        _submitted = false;
+        _lastCorrect = null;
+        _canSubmit = false;
+      });
+      return;
+    } finally {
+      _answerPipelineInFlight = false;
     }
+
+    if (!mounted || result == null) return;
+    await _applyAnswerResult(result);
+  }
+
+  Future<void> _applyAnswerResult(ClassificationAnswerResult result) async {
+    if (result.level != null && result.level!.title != _level.title) {
+      final newLevel = QuizUiMapper.toUiLevel(result.level!);
+      setState(() {
+        _currentLevel = newLevel;
+        _levelUpLevel = newLevel;
+      });
+    }
+
+    setState(() => _answeredCount++);
+
+    if (result.completed) {
+      setState(() => _phase = _ClassificationPhase.finished);
+      unawaited(ClassificationQuizCompletionRefresh.run());
+      return;
+    }
+
+    if (_index >= _questions.length - 1) {
+      _showCompletionSyncError();
+      return;
+    }
+
+    setState(() {
+      _index++;
+      _selectedId = null;
+      _submitted = false;
+      _lastCorrect = null;
+      _canSubmit = false;
+      _submitHandler = null;
+      _matchingDragActive = false;
+    });
+  }
+
+  void _showCompletionSyncError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تعذّر تأكيد إنهاء الاختبار. تحقق من الاتصال وحاول مرة أخرى.',
+        ),
+      ),
+    );
   }
 
   void _handleConfirmTap() => _submitHandler?.call();
 
-  Widget _buildQuestionView() {
-    final question = _question;
+  Widget _buildQuestionView(ClassificationQuestion question) {
     return switch (question) {
       ClassificationMcqQuestion mcq => ClassificationMcqView(
           question: mcq,
-          selectedId: _selectedId,
-          isSubmitted: _submitted,
+          selectedId: question.id == _question.id ? _selectedId : null,
+          isSubmitted: question.id == _question.id && _submitted,
           onSelect: _onSelectMcq,
         ),
       ClassificationFillBlankQuestion fill => ClassificationFillBlankView(
@@ -350,54 +388,52 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
 
   Widget _buildInProgressBody(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 960;
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: Curves.easeOut,
-      child: SingleChildScrollView(
-        key: ValueKey(_question.id),
-        physics: _matchingDragActive
-            ? const NeverScrollableScrollPhysics()
-            : null,
-
-        padding: const EdgeInsets.only(bottom: 128),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1280),
-            child: Column(
-              children: [
-
-                Container(
-                  width: double.infinity,
-                  margin: EdgeInsets.only(top: wide ? 20 : 0),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [AppColors.mainBg2, AppColors.mainBg],
-                    ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.05),
-                    ),
-                    borderRadius: wide
-                        ? BorderRadius.circular(16)
-                        : BorderRadius.zero,
-                    boxShadow: AppShadows.shadow2xl,
+    return SingleChildScrollView(
+      key: ValueKey('classification-q-${_question.id}'),
+      physics: _matchingDragActive
+          ? const NeverScrollableScrollPhysics()
+          : null,
+      padding: EdgeInsets.only(
+        bottom: SystemBottomInset.contentClearanceOf(
+          context,
+          barContentHeight: ClassificationSubmitContainer.barContentHeight,
+        ),
+      ),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1280),
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                margin: EdgeInsets.only(top: wide ? 20 : 0),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [AppColors.mainBg2, AppColors.mainBg],
                   ),
-                  child: _buildQuestionView(),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
+                  borderRadius: wide
+                      ? BorderRadius.circular(16)
+                      : BorderRadius.zero,
+                  boxShadow: AppShadows.shadow2xl,
                 ),
-                if (!_hideSubmitButton)
-                  const SizedBox(height: 24),
-                if (!_hideSubmitButton)
-                  Center(
-                    child: ClassificationConfirmButton(
-                      enabled: _canSubmit,
-                      onPressed: _handleConfirmTap,
-                    ),
+                child: _buildQuestionView(_question),
+              ),
+              if (!_hideSubmitButton) const SizedBox(height: 24),
+              if (!_hideSubmitButton)
+                Center(
+                  child: ClassificationConfirmButton(
+                    enabled: _canSubmit,
+                    onPressed: _handleConfirmTap,
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -424,41 +460,45 @@ class _ClassificationQuizPageState extends State<ClassificationQuizPage> {
             _ => Stack(
                 fit: StackFit.expand,
                 children: [
-                  Column(
-                    children: [
-                      if (_phase == _ClassificationPhase.inProgress)
-                        SafeArea(
-                          bottom: false,
-                          minimum: const EdgeInsets.only(top: 8),
-                          child: ClassificationProgressBar(
-                            current: _index + 1,
-                            total: _questions.length,
-                          ),
-                        ),
-                      Expanded(
-                        child: switch (_phase) {
-                          _ClassificationPhase.ready => ClassificationReadyState(
-                            currentLevel: _level,
-                            totalQuestions: _attempt?.questionsCount ??
-                                _questions.length,
-                            answeredQuestions: _answeredCount,
-                            isContinue: _attempt?.status == 'continued',
-                            onStart: _start,
-                          ),
-                          _ClassificationPhase.inProgress =>
-                            _buildInProgressBody(context),
-                          _ClassificationPhase.finished =>
-                            ClassificationFinishedState(
-                              currentLevel: _level,
-                              onExit: () => context.pop(true),
+                  SafeArea(
+                    bottom: _phase != _ClassificationPhase.inProgress,
+                    child: Column(
+                      children: [
+                        if (_phase == _ClassificationPhase.inProgress)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: ClassificationProgressBar(
+                              current: _index + 1,
+                              total: _questions.length,
                             ),
-                          _ClassificationPhase.empty => ClassificationEmptyState(
-                            onExit: () => context.pop(),
                           ),
-                          _ => const SizedBox.shrink(),
-                        },
-                      ),
-                    ],
+                        Expanded(
+                          child: switch (_phase) {
+                            _ClassificationPhase.ready =>
+                              ClassificationReadyState(
+                                currentLevel: _level,
+                                totalQuestions: _attempt?.questionsCount ??
+                                    _questions.length,
+                                answeredQuestions: _answeredCount,
+                                isContinue: _attempt?.status == 'continued',
+                                onStart: _start,
+                              ),
+                            _ClassificationPhase.inProgress =>
+                              _buildInProgressBody(context),
+                            _ClassificationPhase.finished =>
+                              ClassificationFinishedState(
+                                currentLevel: _level,
+                                onExit: () => context.pop(true),
+                              ),
+                            _ClassificationPhase.empty =>
+                              ClassificationEmptyState(
+                                onExit: () => context.pop(),
+                              ),
+                            _ => const SizedBox.shrink(),
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   if (_levelUpLevel != null)
                     ClassificationLevelUpOverlay(

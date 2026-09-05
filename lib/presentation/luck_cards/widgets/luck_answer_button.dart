@@ -6,7 +6,7 @@ import '../../../core/theme/app_quiz_palette.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/widgets/quiz_html_text.dart';
+import '../../../core/widgets/quiz_option_text.dart';
 import '../models/luck_card_question.dart';
 
 enum LuckAnswerVisualState { idle, correct, wrong, dimmed }
@@ -71,14 +71,17 @@ class LuckAnswerButton extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Padding(
-                  padding: EdgeInsets.all(compact ? AppSpacing.xxs : AppSpacing.sm),
-                  child: QuizHtmlText(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? AppSpacing.xxs : AppSpacing.sm,
+                    vertical: compact ? AppSpacing.xxs : AppSpacing.sm,
+                  ),
+                  child: QuizOptionText(
                     html: option.text,
                     textAlign: TextAlign.center,
                     baseStyle: AppTypography.headingDialog.copyWith(
                       color: AppColors.onDark,
                       fontWeight: FontWeight.w900,
-                      height: 1.25,
+                      height: 1.2,
                       fontSize: compact ? 14 : 18,
                     ),
                   ),

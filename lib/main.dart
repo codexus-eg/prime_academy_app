@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 
+import 'app/app_bootstrap.dart';
 import 'app/prime_app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Keep the native launch screen until SplashPage paints its first frame.
+  AppBootstrap.deferFirstFrameUntilSplashReady();
+
   _enableAndroidPhotoPicker();
   runApp(const PrimeApp());
 }

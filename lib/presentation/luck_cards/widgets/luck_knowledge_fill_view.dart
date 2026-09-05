@@ -6,6 +6,7 @@ import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/answers_direction.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../../../data/quizzes/knowledge_quiz_question.dart';
 
@@ -137,7 +138,7 @@ class _LuckKnowledgeFillViewState extends State<LuckKnowledgeFillView> {
     final boxSize = MediaQuery.sizeOf(context).width >= 1024 ? 48.0 : 40.0;
 
     return Directionality(
-      textDirection: TextDirection.ltr,
+      textDirection: widget.question.answersDirection.textDirection,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

@@ -7,8 +7,8 @@ import '../../../core/theme/app_quiz_palette.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/quiz_option_text.dart';
 import '../../../core/widgets/quiz_answer_image.dart';
-import '../../../core/widgets/quiz_html_text.dart';
 import '../models/exam_question.dart';
 
 enum ExamAnswerState { idle, selected, correct, wrong }
@@ -23,6 +23,8 @@ class ExamAnswerOptionButton extends StatefulWidget {
     required this.onTap,
     this.animateEntrance = true,
     this.cardHeight,
+    this.minHeight,
+    this.fillParent = true,
   });
 
   final ExamAnswerOption option;
@@ -32,8 +34,14 @@ class ExamAnswerOptionButton extends StatefulWidget {
   final VoidCallback? onTap;
   final bool animateEntrance;
 
-  /// Optional fixed height. When null, fills the parent (square grid cell).
+  /// Optional fixed height. When null and [fillParent] is true, fills parent.
   final double? cardHeight;
+
+  /// Minimum height for text options that grow with content.
+  final double? minHeight;
+
+  /// When false, the card sizes to its text (with optional [minHeight]).
+  final bool fillParent;
 
   @override
   State<ExamAnswerOptionButton> createState() => _ExamAnswerOptionButtonState();
@@ -118,19 +126,18 @@ class _ExamAnswerOptionButtonState extends State<ExamAnswerOptionButton>
     };
   }
 
-  Widget _buildTitle(String displayTitle) {
-    final width = MediaQuery.sizeOf(context).width;
-    // Web: default ~16, sm:text-xl (20), md:text-lg (18)
-    final fontSize = width >= 768
+  TextStyle _titleStyle(double screenWidth) {
+
+    final fontSize = screenWidth >= 768
         ? 18.0
-        : width >= 640
-            ? 20.0
-            : 16.0;
-    final style = AppTypography.bodyLg.copyWith(
+        : screenWidth >= 400
+            ? 16.0
+            : 15.0;
+    return AppTypography.bodyLg.copyWith(
       color: AppColors.onDark,
       fontWeight: AppFonts.bold,
       fontSize: fontSize,
-      height: 1.25,
+      height: 1.2,
       shadows: const [
         Shadow(
           color: Color(0x80000000),
@@ -139,46 +146,13 @@ class _ExamAnswerOptionButtonState extends State<ExamAnswerOptionButton>
         ),
       ],
     );
-    final plain = QuizHtmlText.plainText(displayTitle);
-    final words =
-        plain.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    if (words.isEmpty) {
-      return QuizHtmlText(
-        html: displayTitle,
-        textAlign: TextAlign.center,
-        baseStyle: style,
-      );
-    }
+  }
 
-    // Keep each word on one line (no mid-word wrap). Scale a word down if it
-    // is wider than the square.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Wrap(
-          alignment: WrapAlignment.center,
-          runAlignment: WrapAlignment.center,
-          spacing: 4,
-          runSpacing: 2,
-          children: [
-            for (final word in words)
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    word,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.visible,
-                    textAlign: TextAlign.center,
-                    style: style,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
+  /// Tighter padding on narrow phones so long English words keep more width.
+  double _contentPadding(double screenWidth) {
+    if (screenWidth < 360) return AppSpacing.sm; // 8
+    if (screenWidth < 400) return AppSpacing.md; // 12
+    return AppSpacing.base; // 16
   }
 
   @override
@@ -187,19 +161,132 @@ class _ExamAnswerOptionButtonState extends State<ExamAnswerOptionButton>
     final width = MediaQuery.sizeOf(context).width;
 
     final isMobileLayout = width < 768;
+    final contentPad = _contentPadding(width);
     final rawTitle = widget.option.text.trim();
     final displayTitle = rawTitle
         .replaceAll(RegExp(r'<img[^>]*>', caseSensitive: false), '')
         .trim();
     final imageUrl = widget.option.imageUrl;
     final hasImage = imageUrl != null && imageUrl.trim().isNotEmpty;
-    final showLetterBadge = width >= 640 && !hasImage;
-    final letter = String.fromCharCode(65 + widget.index);
     final hoverScale =
         !isMobileLayout && _hovered && widget.onTap != null ? 1.03 : 1.0;
     final hoverLift =
         !isMobileLayout && _hovered && widget.onTap != null ? -4.0 : 0.0;
     final radius = BorderRadius.circular(_cardRadius);
+    final fill = widget.fillParent || hasImage;
+    final minH = widget.minHeight ?? 0;
+    final content = displayTitle.isEmpty
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: EdgeInsets.all(contentPad),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return QuizOptionText(
+                  html: displayTitle,
+                  baseStyle: _titleStyle(width),
+                  textAlign: TextAlign.center,
+                );
+              },
+            ),
+          );
+
+    final centeredContent = fill
+        ? Positioned.fill(
+            child: Center(child: content),
+          )
+        : minH > 0
+            ? SizedBox(
+                height: minH,
+                width: double.infinity,
+                child: Center(child: content),
+              )
+            : Center(child: content);
+
+    final cardBody = ClipRRect(
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
+      child: fill
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                if (hasImage)
+                  Positioned.fill(
+                    child: QuizAnswerImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                if (!isMobileLayout) ...[
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x0DFFFFFF),
+                          Color(0x03FFFFFF),
+                          Colors.transparent,
+                        ],
+                        stops: [0, 0.4, 1],
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: 0.25,
+                      widthFactor: 1,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.4),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if (hasImage && displayTitle.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Color(0xB3000000),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(contentPad),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return QuizOptionText(
+                              html: displayTitle,
+                              baseStyle: _titleStyle(width),
+                              textAlign: TextAlign.center,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  )
+                else if (!hasImage)
+                  centeredContent,
+              ],
+            )
+          : centeredContent,
+    );
 
     return AnimatedBuilder(
       animation: Listenable.merge([_enterController, _shakeController]),
@@ -238,111 +325,23 @@ class _ExamAnswerOptionButtonState extends State<ExamAnswerOptionButton>
             borderRadius: radius,
             child: Ink(
               width: double.infinity,
-              height: widget.cardHeight ?? double.infinity,
+              height: widget.cardHeight ?? (fill ? double.infinity : null),
               decoration: BoxDecoration(
                 color: style.background,
                 borderRadius: radius,
                 border: Border.all(color: style.border, width: 2),
-
                 boxShadow: AppQuizPalette.examCardShadows(
                   style,
                   mobile: isMobileLayout,
                   hovered: _hovered && !isMobileLayout,
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: radius,
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-
-                    if (hasImage)
-                      Positioned.fill(
-                        child: QuizAnswerImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-
-                    if (!isMobileLayout) ...[
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0x0DFFFFFF),
-                              Color(0x03FFFFFF),
-                              Colors.transparent,
-                            ],
-                            stops: [0, 0.4, 1],
-                          ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: 0.25,
-                          widthFactor: 1,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.4),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (showLetterBadge)
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: style.icon,
-                            shape: BoxShape.circle,
-                            boxShadow: isMobileLayout
-                                ? null
-                                : [
-                                    BoxShadow(
-                                      color: style.icon.withValues(alpha: 0.9),
-                                      blurRadius: 10,
-                                    ),
-                                  ],
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            letter,
-                            style: AppTypography.badge.copyWith(
-                              color: AppColors.onDark,
-                              fontWeight: AppFonts.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (displayTitle.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          AppSpacing.base,
-                          showLetterBadge ? AppSpacing.xxl : AppSpacing.base,
-                          AppSpacing.base,
-                          AppSpacing.base,
-                        ),
-                        child: Center(child: _buildTitle(displayTitle)),
-                      ),
-                  ],
-                ),
-              ),
+              child: fill
+                  ? cardBody
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: minH),
+                      child: cardBody,
+                    ),
             ),
           ),
         ),

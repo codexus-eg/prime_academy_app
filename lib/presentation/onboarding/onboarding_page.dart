@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_durations.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../data/onboarding/onboarding_storage.dart';
 import '../auth/login_page.dart';
 import 'data/onboarding_assets.dart';
 import 'widgets/onboarding_shared.dart';
@@ -30,7 +31,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
-  void _goToLogin() => context.go(LoginPage.routePath);
+  Future<void> _goToLogin() async {
+    await OnboardingStorage.markCompleted();
+    if (!mounted) return;
+    context.go(LoginPage.routePath);
+  }
 
   void _onNext() {
     if (_currentPage >= OnboardingPage.pageCount - 1) {
@@ -52,13 +57,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             const OnboardingHeader(),
             Expanded(
-              child: PageView(
+              child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: (index) => setState(() => _currentPage = index),
-                children: [
-                  for (final slide in OnboardingSlides.items)
-                    OnboardingSlide(data: slide),
-                ],
+                itemCount: OnboardingSlides.items.length,
+                itemBuilder: (context, index) {
+                  return OnboardingSlide(
+                    data: OnboardingSlides.items[index],
+                    isActive: index == _currentPage,
+                  );
+                },
               ),
             ),
             const SizedBox(height: AppSpacing.xl),

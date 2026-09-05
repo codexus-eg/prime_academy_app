@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/utils/answers_direction.dart';
+import '../../core/utils/json_bool.dart';
 import 'knowledge_quiz_question.dart';
 import 'unit_quiz_question.dart';
 
@@ -80,6 +82,7 @@ class QuizMcqQuestion extends QuizClassificationQuestion {
   const QuizMcqQuestion({
     required super.id,
     required super.title,
+    super.answersDirection,
     required this.answers,
     required this.correctAnswerIds,
     this.points = 0,
@@ -123,6 +126,7 @@ class QuizMcqQuestion extends QuizClassificationQuestion {
     return QuizMcqQuestion(
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       answers: answers,
       correctAnswerIds: correctIds,
       points: _asInt(json['points']),
@@ -136,10 +140,15 @@ class QuizMcqQuestion extends QuizClassificationQuestion {
 }
 
 sealed class QuizClassificationQuestion {
-  const QuizClassificationQuestion({required this.id, required this.title});
+  const QuizClassificationQuestion({
+    required this.id,
+    required this.title,
+    this.answersDirection = AnswersDirection.rtl,
+  });
 
   final String id;
   final String title;
+  final AnswersDirection answersDirection;
   String get type;
 
   factory QuizClassificationQuestion.fromJson(Map<String, dynamic> json) {
@@ -156,6 +165,7 @@ class QuizFillBlankQuestion extends QuizClassificationQuestion {
   const QuizFillBlankQuestion({
     required super.id,
     required super.title,
+    super.answersDirection,
     required this.correctAnswers,
     this.points = 0,
   });
@@ -178,6 +188,7 @@ class QuizFillBlankQuestion extends QuizClassificationQuestion {
     return QuizFillBlankQuestion(
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       correctAnswers: correctAnswers,
       points: _asInt(json['points']),
     );
@@ -259,6 +270,7 @@ class QuizMatchingQuestion extends QuizClassificationQuestion {
   const QuizMatchingQuestion({
     required super.id,
     required super.title,
+    super.answersDirection,
     required this.prompts,
     this.points = 0,
   });
@@ -297,6 +309,7 @@ class QuizMatchingQuestion extends QuizClassificationQuestion {
     return QuizMatchingQuestion(
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       prompts: prompts,
       points: _asInt(json['points']),
     );
@@ -479,8 +492,8 @@ class KnowledgeAnswerResult {
 
   factory KnowledgeAnswerResult.fromJson(Map<String, dynamic> json) {
     return KnowledgeAnswerResult(
-      correct: json['correct'] == true,
-      completed: json['completed'] == true,
+      correct: parseApiBool(json['correct']),
+      completed: parseApiBool(json['completed']),
       awardedPoints: _asInt(json['awardedPoints']),
       totalPointsAwarded: json['totalPointsAwarded'] == null
           ? null
@@ -591,8 +604,8 @@ class UnitQuizAnswerResult {
 
   factory UnitQuizAnswerResult.fromJson(Map<String, dynamic> json) {
     return UnitQuizAnswerResult(
-      correct: json['correct'] == true,
-      completed: json['completed'] == true,
+      correct: parseApiBool(json['correct']),
+      completed: parseApiBool(json['completed']),
       pointsAwarded:
           json['pointsAwarded'] == null ? null : _asInt(json['pointsAwarded']),
       correctCount:
@@ -601,8 +614,8 @@ class UnitQuizAnswerResult {
           ? null
           : _asInt(json['inCorrectCount']),
       score: json['score'] == null ? null : _asInt(json['score']),
-      canStartLastChance: json['canStartLastChance'] == true,
-      hasLastChance: json['hasLastChance'] == true,
+      canStartLastChance: parseApiBool(json['canStartLastChance']),
+      hasLastChance: parseApiBool(json['hasLastChance']),
     );
   }
 }

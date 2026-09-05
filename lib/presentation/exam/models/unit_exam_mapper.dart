@@ -10,6 +10,7 @@ abstract final class UnitExamMapper {
       UnitMcqQuestion mcq => ClassificationMcqQuestion(
           id: mcq.id,
           title: mcq.title,
+          answersDirection: mcq.answersDirection,
           answers: [
             for (final a in mcq.answers)
               ClassificationAnswer(
@@ -23,6 +24,7 @@ abstract final class UnitExamMapper {
       UnitFillBlankQuestion fill => ClassificationFillBlankQuestion(
           id: fill.id,
           title: fill.title,
+          answersDirection: fill.answersDirection,
           correctAnswer: fill.correctAnswers.isEmpty
               ? ''
               : QuizHtmlText.plainText(fill.correctAnswers.first.title),
@@ -30,6 +32,7 @@ abstract final class UnitExamMapper {
       UnitMatchingQuestion match => ClassificationMatchingQuestion(
           id: match.id,
           title: match.title,
+          answersDirection: match.answersDirection,
           prompts: [
             for (final prompt in match.prompts)
               ClassificationMatchingPrompt(

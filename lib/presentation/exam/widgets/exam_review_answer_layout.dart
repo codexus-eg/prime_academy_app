@@ -46,8 +46,10 @@ class _ReviewHoverHighlightState extends State<ReviewHoverHighlight> {
   }
 }
 
-/// Keeps each word on one line and lets later lines use the full width,
-/// including the space under [leading] (web: wrap below the status icon).
+/// Mixed Arabic+English as one bidi run — matches web `<p dir={getTextDirection}>`.
+///
+/// Do not split into per-word widgets: that isolates each word from the Unicode
+/// bidi algorithm and reverses phrases like `تيار الهواء او الماء`.
 class ReviewFlowingText extends StatelessWidget {
   const ReviewFlowingText({
     super.key,
@@ -64,42 +66,31 @@ class ReviewFlowingText extends StatelessWidget {
   Widget build(BuildContext context) {
     final plain = QuizHtmlText.plainText(text);
     final direction = QuizHtmlText.detectTextDirection(plain);
-    final words =
-        plain.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
+    final align =
+        direction == TextDirection.rtl ? TextAlign.right : TextAlign.left;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
+    final textWidget = Directionality(
+      textDirection: direction,
+      child: Text(
+        plain,
+        style: style,
+        textAlign: align,
+        softWrap: true,
+      ),
+    );
 
-        return Directionality(
-          textDirection: direction,
-          child: Wrap(
-            spacing: 4,
-            runSpacing: 2,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ?leading,
-              for (final word in words)
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      word,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.visible,
-                      style: style,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+    if (leading == null) return textWidget;
+
+    return Directionality(
+      textDirection: direction,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          leading!,
+          const SizedBox(width: 8),
+          Expanded(child: textWidget),
+        ],
+      ),
     );
   }
 }

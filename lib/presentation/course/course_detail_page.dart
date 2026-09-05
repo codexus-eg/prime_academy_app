@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
@@ -9,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/auth/auth_session.dart';
 import '../../data/courses/courses_api.dart';
+import '../../data/courses/lesson_page_cache.dart';
 import '../home/widgets/app_nav_scaffold.dart';
 import 'models/course_detail_mapper.dart';
 import 'models/course_unit.dart';
@@ -168,14 +171,46 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
             showProgressRing: course.isEnrolled && _showStudentProgress,
             onLessonClosed: _refreshProgress,
             onTap: () {
+              final expanding = _expandedUnitIndex != i;
               setState(() {
                 _expandedUnitIndex = _expandedUnitIndex == i ? null : i;
               });
+              if (expanding) {
+                _prefetchUnit(course.units[i]);
+              }
             },
           ),
         ],
       ],
     );
+  }
+
+  /// Warm module + first lessons so opening a lesson paints immediately.
+  void _prefetchUnit(CourseUnit unit) {
+    final courseId = int.tryParse(widget.courseId);
+    final moduleId = int.tryParse(unit.id);
+    if (courseId == null || moduleId == null) return;
+
+    unawaited(() async {
+      try {
+        final module = await LessonPageCache.loadModule(
+          courseId: courseId,
+          moduleId: moduleId,
+          fetch: () => CoursesApi.fetchModuleItems(
+            courseId: courseId,
+            moduleId: moduleId,
+          ),
+        );
+        final ids = module.items
+            .map((item) => item.lesson?.id)
+            .whereType<int>()
+            .take(4);
+        LessonPageCache.prefetchLessons(
+          ids,
+          fetch: CoursesApi.fetchLesson,
+        );
+      } catch (_) {}
+    }());
   }
 }
 

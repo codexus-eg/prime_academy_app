@@ -1,3 +1,4 @@
+import '../../core/widgets/quiz_html_text.dart';
 import 'answered_question_models.dart';
 import 'quiz_models.dart';
 
@@ -36,33 +37,74 @@ extension AnsweredQuizQuestionDisplay on AnsweredQuizQuestion {
   }
 
   List<String> _matchStudentLines() {
-    if (studentAnswerPairs.isEmpty) return const [];
-    return studentAnswerPairs.entries.map((entry) {
-      final prompt = prompts.where((p) => p.id == entry.key).firstOrNull;
-      QuizMatchingResponse? response;
-      for (final p in prompts) {
-        if (p.response.id == entry.value) {
-          response = p.response;
-          break;
-        }
-      }
-      final promptTitle = prompt?.title ?? '${entry.key}';
-      final responseTitle = response?.title ?? '${entry.value}';
-      return '$promptTitle → $responseTitle';
-    }).toList();
+    if (studentAnswerPairs.isEmpty || prompts.isEmpty) return const [];
+
+    final lines = <String>[];
+    for (final prompt in prompts) {
+      final responseId = studentResponseIdFor(prompt);
+      if (responseId == null) continue;
+      final response = _responseById(responseId);
+      lines.add(
+        pairLine(prompt.title, response?.title ?? '$responseId'),
+      );
+    }
+    return lines;
   }
 
   List<String> _matchCorrectLines() {
-    return prompts.map((p) => '${p.title} → ${p.response.title}').toList();
+    return prompts
+        .map((p) => pairLine(p.title, p.response.title))
+        .toList();
+  }
+
+  /// Web review looks up `{promptId: responseId}`.
+  /// Submit/API stores `{responseId: promptId}`. Accept both.
+  int? studentResponseIdFor(QuizMatchingPrompt prompt) {
+    if (studentAnswerPairs.isEmpty) return null;
+
+    final knownResponseIds = {
+      for (final p in prompts) p.response.id,
+    };
+
+    final byPrompt = studentAnswerPairs[prompt.id];
+    if (byPrompt != null &&
+        byPrompt > 0 &&
+        knownResponseIds.contains(byPrompt)) {
+      return byPrompt;
+    }
+
+    for (final entry in studentAnswerPairs.entries) {
+      if (entry.value == prompt.id && knownResponseIds.contains(entry.key)) {
+        return entry.key;
+      }
+    }
+
+    if (byPrompt != null && byPrompt > 0) return byPrompt;
+    return null;
+  }
+
+  QuizMatchingResponse? _responseById(int id) {
+    for (final prompt in prompts) {
+      if (prompt.response.id == id) return prompt.response;
+    }
+    return null;
   }
 
   List<String> _reorderStudentLines() {
-    if (studentAnswerPairs.isEmpty) return const [];
-    final entries = studentAnswerPairs.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    return entries.map((entry) {
-      final answer = answers.where((a) => a.id == entry.value).firstOrNull;
-      return answer?.title ?? '${entry.value}';
+    if (studentAnswerPairs.isNotEmpty) {
+      final entries = studentAnswerPairs.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      return entries.map((entry) {
+        final answer = answers.where((a) => a.id == entry.value).firstOrNull;
+        return answer?.title ?? '${entry.value}';
+      }).toList();
+    }
+
+    // Web stores re-order as `number[]`; those IDs land in studentAnswerIds.
+    if (studentAnswerIds.isEmpty) return const [];
+    return studentAnswerIds.map((id) {
+      final answer = answers.where((a) => a.id == id).firstOrNull;
+      return answer?.title ?? '$id';
     }).toList();
   }
 
@@ -75,6 +117,13 @@ extension AnsweredQuizQuestionDisplay on AnsweredQuizQuestion {
       return answer?.title ?? '${item.answerId}';
     }).toList();
   }
+
+}
+
+String pairLine(String left, String right) {
+  final leftText = QuizHtmlText.plainText(left);
+  final rightText = QuizHtmlText.plainText(right);
+  return '${QuizHtmlText.bidiIsolate(leftText)} → ${QuizHtmlText.bidiIsolate(rightText)}';
 }
 
 extension<T> on Iterable<T> {

@@ -17,15 +17,34 @@ class QuizHtmlText extends StatelessWidget {
   /// web-like `1em` gap — used for reading passages.
   final bool blockParagraphs;
 
+  static const _allowedTags = {
+    'p',
+    'strong',
+    'b',
+    'mark',
+    'br',
+    'span',
+    'em',
+    'i',
+    'u',
+    'div',
+  };
+
   static final _tagPattern = RegExp(
     r'<(/?)(p|strong|b|mark|br|span|em|i|u|div)([^>]*)>|([^<]+)',
     caseSensitive: false,
   );
 
+  /// Any HTML tag (used to strip unsupported ones like `<a>`).
+  static final _anyTagPattern = RegExp(
+    r'</?([a-zA-Z][\w:-]*)\b[^>]*>',
+    caseSensitive: false,
+  );
+
   @override
   Widget build(BuildContext context) {
-    final normalized = _normalizeHtml(html);
-    final plain = _stripTags(normalized);
+    final normalized = sanitizeHtml(html);
+    final plain = plainText(normalized);
     final direction = _detectDirection(plain);
     final style = baseStyle ??
         const TextStyle(
@@ -43,7 +62,7 @@ class QuizHtmlText extends StatelessWidget {
 
     var children = _parse(normalized, style);
     if (_hasHtmlArtifacts(children)) {
-      children = [TextSpan(text: _decodeEntities(plain), style: style)];
+      children = [TextSpan(text: plain, style: style)];
     }
 
     return Directionality(
@@ -78,16 +97,14 @@ class QuizHtmlText extends StatelessWidget {
   List<InlineSpan> _spansForBlock(String block, TextStyle style) {
     var children = _parse(block, style);
     if (_hasHtmlArtifacts(children)) {
-      children = [
-        TextSpan(text: _decodeEntities(_stripTags(block)), style: style),
-      ];
+      children = [TextSpan(text: plainText(block), style: style)];
     }
     return children;
   }
 
   /// Splits HTML into visual paragraphs, matching browser `<p>` / blank lines.
   static List<String> splitParagraphs(String html) {
-    final normalized = _normalizeHtml(html);
+    final normalized = sanitizeHtml(html);
     if (normalized.isEmpty) return const [];
 
     final pRe = RegExp(
@@ -143,9 +160,42 @@ class QuizHtmlText extends StatelessWidget {
   }
 
   static TextDirection detectTextDirection(String html) =>
-      _detectDirection(_stripTags(_decodeEntities(html)));
+      _detectDirection(plainText(html));
 
-  static String plainText(String html) => _stripTags(html);
+  /// First Strong Isolate + Pop Directional Isolate.
+  /// Keeps mixed Arabic/English segments from reversing each other.
+  static String bidiIsolate(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return trimmed;
+    return '\u2068$trimmed\u2069';
+  }
+
+  /// Visible text only — never raw HTML tags/attributes.
+  static String plainText(String html) =>
+      _decodeEntities(_stripTags(sanitizeHtml(html)))
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+
+  /// Keep supported formatting tags; drop everything else (e.g. `<a>`) while
+  /// preserving inner text so quiz prompts never show source code.
+  static String sanitizeHtml(String input) {
+    var s = _normalizeHtml(input);
+
+    // <a href="...">label</a> → label
+    s = s.replaceAllMapped(
+      RegExp(r'<a\b[^>]*>(.*?)</a>', caseSensitive: false, dotAll: true),
+      (match) => match.group(1) ?? '',
+    );
+
+    // Strip any remaining / unknown tags; keep allowlisted markup intact.
+    s = s.replaceAllMapped(_anyTagPattern, (match) {
+      final tag = match.group(1)?.toLowerCase() ?? '';
+      if (_allowedTags.contains(tag)) return match.group(0)!;
+      return '';
+    });
+
+    return s;
+  }
 
   static String _normalizeHtml(String input) {
     var s = input.trim();
@@ -161,7 +211,14 @@ class QuizHtmlText extends StatelessWidget {
       final text = span.text!;
       if (text.contains('style="') ||
           text.contains('text-align') ||
-          RegExp(r'^/?p\s', caseSensitive: false).hasMatch(text)) {
+          text.contains('href=') ||
+          text.contains('target=') ||
+          text.contains('rel=') ||
+          text.contains('noopener') ||
+          text.contains('<') ||
+          text.contains('</') ||
+          RegExp(r'^/?p\s', caseSensitive: false).hasMatch(text) ||
+          RegExp(r'^/?a\s', caseSensitive: false).hasMatch(text)) {
         return true;
       }
     }
@@ -206,7 +263,15 @@ class QuizHtmlText extends StatelessWidget {
       if (match.start > last) {
         final text = source.substring(last, match.start);
         if (text.isNotEmpty) {
-          spans.add(TextSpan(text: _decodeEntities(text), style: stack.last));
+          // Leftover markup between matches → never paint raw tags.
+          if (_looksLikeRawMarkup(text)) {
+            final cleaned = _decodeEntities(_stripTags(text));
+            if (cleaned.isNotEmpty) {
+              spans.add(TextSpan(text: cleaned, style: stack.last));
+            }
+          } else {
+            spans.add(TextSpan(text: _decodeEntities(text), style: stack.last));
+          }
         }
       }
 
@@ -216,7 +281,14 @@ class QuizHtmlText extends StatelessWidget {
       if (tag == null) {
         final text = match.group(4);
         if (text != null && text.isNotEmpty) {
-          spans.add(TextSpan(text: _decodeEntities(text), style: stack.last));
+          if (_looksLikeRawMarkup(text)) {
+            final cleaned = _decodeEntities(_stripTags(text));
+            if (cleaned.isNotEmpty) {
+              spans.add(TextSpan(text: cleaned, style: stack.last));
+            }
+          } else {
+            spans.add(TextSpan(text: _decodeEntities(text), style: stack.last));
+          }
         }
       } else if (closing) {
         if (stack.length > 1) stack.removeLast();
@@ -224,8 +296,8 @@ class QuizHtmlText extends StatelessWidget {
         spans.add(const TextSpan(text: '\n'));
       } else if (tag == 'p' || tag == 'div') {
         if (spans.isNotEmpty && spans.last is TextSpan) {
-          final last = spans.last as TextSpan;
-          if (last.text != null && !last.text!.endsWith('\n')) {
+          final lastSpan = spans.last as TextSpan;
+          if (lastSpan.text != null && !lastSpan.text!.endsWith('\n')) {
             spans.add(const TextSpan(text: '\n\n'));
           }
         }
@@ -240,15 +312,28 @@ class QuizHtmlText extends StatelessWidget {
     if (last < source.length) {
       final tail = source.substring(last);
       if (tail.isNotEmpty) {
-        spans.add(TextSpan(text: _decodeEntities(tail), style: stack.last));
+        if (_looksLikeRawMarkup(tail)) {
+          final cleaned = _decodeEntities(_stripTags(tail));
+          if (cleaned.isNotEmpty) {
+            spans.add(TextSpan(text: cleaned, style: stack.last));
+          }
+        } else {
+          spans.add(TextSpan(text: _decodeEntities(tail), style: stack.last));
+        }
       }
     }
 
     if (spans.isEmpty) {
-      return [TextSpan(text: _decodeEntities(_stripTags(source)), style: base)];
+      return [TextSpan(text: plainText(source), style: base)];
     }
     return spans;
   }
+
+  static bool _looksLikeRawMarkup(String text) =>
+      text.contains('<') ||
+      text.contains('href=') ||
+      text.contains('target=') ||
+      text.contains('style=');
 
   TextStyle _styleForTag(String tag, String attrs, TextStyle parent) {
     return switch (tag) {
@@ -275,5 +360,10 @@ class QuizHtmlText extends StatelessWidget {
       .replaceAll('&lt;', '<')
       .replaceAll('&gt;', '>')
       .replaceAll('&quot;', '"')
-      .replaceAll('&#39;', "'");
+      .replaceAll('&#39;', "'")
+      .replaceAllMapped(RegExp(r'&#(\d+);'), (m) {
+        final code = int.tryParse(m.group(1)!);
+        if (code == null) return m.group(0)!;
+        return String.fromCharCode(code);
+      });
 }

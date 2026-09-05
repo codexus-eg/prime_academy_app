@@ -125,8 +125,7 @@ class _TabCell extends StatelessWidget {
           hoverColor: AppColors.mainBg2Half,
           splashColor: AppColors.mainBg2Half,
           highlightColor: AppColors.mainBg2Half,
-          child: AnimatedContainer(
-            duration: AppShadows.tabTransition,
+          child: Container(
             alignment: Alignment.center,
             decoration: BoxDecoration(
               gradient: isActive ? AppGradients.homeTabActive : null,

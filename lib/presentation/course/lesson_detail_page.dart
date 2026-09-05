@@ -12,6 +12,7 @@ import '../../core/utils/video_progress.dart';
 import '../../core/widgets/icons/mystery_card_icon.dart';
 import '../../data/auth/auth_session.dart';
 import '../../data/courses/courses_api.dart';
+import '../../data/courses/lesson_page_cache.dart';
 import '../../data/courses/module_material.dart';
 import '../../data/courses/user_course.dart';
 import '../../data/sse/video_session_guard.dart';
@@ -73,8 +74,222 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   @override
   void initState() {
     super.initState();
+    // Paint instantly from in-memory cache (web moduleStore / activeLesson).
+    _hydrateFromCache();
     _future = _load();
     _startSessionGuard();
+  }
+
+  void _hydrateFromCache() {
+    final courseId = int.tryParse(widget.courseId);
+    final moduleId = int.tryParse(widget.unitId);
+    final itemId = int.tryParse(widget.lessonId);
+    if (courseId == null || moduleId == null || itemId == null) return;
+
+    final module = LessonPageCache.moduleOf(courseId, moduleId);
+    if (module == null) return;
+
+    UserModuleItem? activeItem;
+    for (final item in module.items) {
+      if (item.id == itemId) {
+        activeItem = item;
+        break;
+      }
+    }
+    final realLessonId = activeItem?.lesson?.id;
+    final playback =
+        realLessonId == null ? null : LessonPageCache.lessonOf(realLessonId);
+
+    final data = _composeScreenData(
+      module: module,
+      itemId: itemId,
+      activeItem: activeItem,
+      playback: playback,
+      showStudentProgress: _showStudentProgress,
+      userRole: null,
+    );
+    _cachedData = data;
+    _sidebarLessons = data.lessons;
+    _hasTestimonial = data.hasTestimonial;
+  }
+
+  Future<_LessonScreenData> _load() async {
+    final courseId = int.tryParse(widget.courseId);
+    final moduleId = int.tryParse(widget.unitId);
+    final itemId = int.tryParse(widget.lessonId);
+    if (courseId == null || moduleId == null || itemId == null) {
+      throw ApiException('الحصة غير موجودة');
+    }
+
+    // Parallel: auth + module (deduped / cached like react-query).
+    final userFuture = AuthSession.load();
+    final moduleFuture = LessonPageCache.loadModule(
+      courseId: courseId,
+      moduleId: moduleId,
+      fetch: () => CoursesApi.fetchModuleItems(
+        courseId: courseId,
+        moduleId: moduleId,
+      ),
+    );
+
+    final user = await userFuture;
+    final showStudentProgress = user?.role == 1;
+    final module = await moduleFuture;
+
+    UserModuleItem? activeItem;
+    for (final item in module.items) {
+      if (item.id == itemId) {
+        activeItem = item;
+        break;
+      }
+    }
+
+    final realLessonId = activeItem?.lesson?.id;
+    final cachedPlayback =
+        realLessonId == null ? null : LessonPageCache.lessonOf(realLessonId);
+
+    // Leave the full-page spinner as soon as the unit is known (web paints
+    // module shell while the active lesson query resolves).
+    final partial = _composeScreenData(
+      module: module,
+      itemId: itemId,
+      activeItem: activeItem,
+      playback: cachedPlayback,
+      showStudentProgress: showStudentProgress,
+      userRole: user?.role,
+    );
+    if (mounted) {
+      setState(() {
+        _sidebarLessons = partial.lessons;
+        _showStudentProgress = showStudentProgress;
+        _hasTestimonial = partial.hasTestimonial;
+        _cachedData = partial;
+      });
+    } else {
+      _cachedData = partial;
+    }
+
+    LessonPlayback? playback = cachedPlayback;
+    var pendingTrophyItemId = '';
+    var pendingTrophyLessonId = 0;
+
+    if (realLessonId != null) {
+      try {
+        playback = await LessonPageCache.loadLesson(
+          lessonId: realLessonId,
+          fetch: () => CoursesApi.fetchLesson(realLessonId),
+        );
+
+        if (module.isEnrolled &&
+            showStudentProgress &&
+            activeItem?.lesson?.hasTrophy != true) {
+          pendingTrophyItemId = widget.lessonId;
+          pendingTrophyLessonId = realLessonId;
+        }
+      } on ApiException {
+        playback = LessonPageCache.lessonOf(realLessonId);
+      }
+    }
+
+    final data = _composeScreenData(
+      module: module,
+      itemId: itemId,
+      activeItem: activeItem,
+      playback: playback,
+      showStudentProgress: showStudentProgress,
+      userRole: user?.role,
+    );
+
+    if (mounted) {
+      setState(() {
+        _sidebarLessons = data.lessons;
+        _showStudentProgress = showStudentProgress;
+        _hasTestimonial = data.hasTestimonial;
+        _cachedData = data;
+      });
+    } else {
+      _cachedData = data;
+    }
+
+    if (pendingTrophyLessonId > 0 && pendingTrophyItemId.isNotEmpty) {
+      unawaited(
+        _awardTrophyAfterPaint(
+          realLessonId: pendingTrophyLessonId,
+          itemId: pendingTrophyItemId,
+        ),
+      );
+    }
+
+    // Prefetch neighboring lessons so the next tap is instant.
+    final neighborIds = <int>[];
+    for (var i = 0; i < module.items.length; i++) {
+      final item = module.items[i];
+      if (item.id != itemId) continue;
+      if (i > 0) {
+        final prev = module.items[i - 1].lesson?.id;
+        if (prev != null) neighborIds.add(prev);
+      }
+      if (i + 1 < module.items.length) {
+        final next = module.items[i + 1].lesson?.id;
+        if (next != null) neighborIds.add(next);
+      }
+      break;
+    }
+    LessonPageCache.prefetchLessons(
+      neighborIds,
+      fetch: CoursesApi.fetchLesson,
+    );
+
+    return data;
+  }
+
+  _LessonScreenData _composeScreenData({
+    required UserModuleItems module,
+    required int itemId,
+    required UserModuleItem? activeItem,
+    required LessonPlayback? playback,
+    required bool showStudentProgress,
+    required int? userRole,
+  }) {
+    final lessons =
+        CourseDetailMapper.lessonsFromItems(module.isEnrolled, module.items);
+    var title = activeItem?.lesson?.title ?? '';
+    if (playback != null && playback.title.isNotEmpty) {
+      title = playback.title;
+    }
+
+    return _LessonScreenData(
+      unitTitle: module.title,
+      lessons: lessons,
+      materials: module.materials,
+      teacher: module.teacher,
+      lessonTitle: title,
+      videoUrl: playback?.videoUrl,
+      videoMimeType: playback?.videoMimeType,
+      videoKind: playback?.kind ?? LessonVideoKind.none,
+      thumbnailUrl: playback?.thumbnailUrl,
+      hasAccess: playback?.hasAccess ?? module.isEnrolled,
+      cards: playback?.cards ?? const [],
+      isEnrolled: module.isEnrolled,
+      realLessonId: playback?.id ?? activeItem?.lesson?.id,
+      classificationQuizId: playback?.classificationQuizId,
+      knowledgeQuizId: playback?.knowledgeQuizId,
+      chatId: playback?.chatId,
+      showTeacherChat: userRole != 0 &&
+          module.isEnrolled &&
+          (module.teacher?.id ?? 0) > 0,
+      classificationQuizCompleted:
+          playback?.classificationQuizStatus?.completed ?? false,
+      classificationLevelTitle:
+          playback?.classificationQuizStatus?.levelTitle,
+      knowledgeQuizCompleted:
+          playback?.knowledgeQuizStatus?.completed ?? false,
+      resumePositionSeconds: VideoProgress.resumePositionSeconds(
+        playback?.lastPosition ?? activeItem?.lesson?.lastPosition,
+      ),
+      hasTestimonial: playback?.hasTestimonial ?? false,
+      cardsCompleted: playback?.cardsCompleted ?? false,
+    );
   }
 
   Future<void> _startSessionGuard() async {
@@ -121,6 +336,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       final tab = LessonAsideTab.fromQuery(
         GoRouterState.of(context).uri.queryParameters['active_tab'],
       );
+      _hydrateFromCache();
       setState(() {
         _liveProgressPercent = null;
         _asideTab = tab ?? LessonAsideTab.videos;
@@ -131,7 +347,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
   }
 
   void _scrollToTopOnLessonChange() {
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_mobileScrollController.hasClients) return;
       _mobileScrollController.animateTo(
@@ -140,109 +355,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
         curve: Curves.easeOut,
       );
     });
-  }
-
-  Future<_LessonScreenData> _load() async {
-    final courseId = int.tryParse(widget.courseId);
-    final moduleId = int.tryParse(widget.unitId);
-    final itemId = int.tryParse(widget.lessonId);
-    if (courseId == null || moduleId == null || itemId == null) {
-      throw ApiException('الحصة غير موجودة');
-    }
-
-    final user = await AuthSession.load();
-    final showStudentProgress = user?.role == 1;
-
-    final module = await CoursesApi.fetchModuleItems(
-      courseId: courseId,
-      moduleId: moduleId,
-    );
-
-    var lessons =
-        CourseDetailMapper.lessonsFromItems(module.isEnrolled, module.items);
-
-    UserModuleItem? activeItem;
-    for (final item in module.items) {
-      if (item.id == itemId) {
-        activeItem = item;
-        break;
-      }
-    }
-
-    String title = activeItem?.lesson?.title ?? '';
-    LessonPlayback? playback;
-    final realLessonId = activeItem?.lesson?.id;
-
-    var pendingTrophyItemId = '';
-    var pendingTrophyLessonId = 0;
-    if (realLessonId != null) {
-      try {
-        playback = await CoursesApi.fetchLesson(realLessonId);
-        if (playback.title.isNotEmpty) title = playback.title;
-
-        if (module.isEnrolled &&
-            showStudentProgress &&
-            activeItem?.lesson?.hasTrophy != true) {
-          pendingTrophyItemId = widget.lessonId;
-          pendingTrophyLessonId = realLessonId;
-        }
-      } on ApiException {
-
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _sidebarLessons = lessons;
-        _showStudentProgress = showStudentProgress;
-        _hasTestimonial = playback?.hasTestimonial ?? false;
-      });
-    }
-
-    final data = _LessonScreenData(
-      unitTitle: module.title,
-      lessons: lessons,
-      materials: module.materials,
-      teacher: module.teacher,
-      lessonTitle: title,
-      videoUrl: playback?.videoUrl,
-      videoKind: playback?.kind ?? LessonVideoKind.none,
-      thumbnailUrl: playback?.thumbnailUrl,
-      hasAccess: playback?.hasAccess ?? module.isEnrolled,
-      cards: playback?.cards ?? const [],
-      isEnrolled: module.isEnrolled,
-      realLessonId: playback?.id ?? realLessonId,
-      classificationQuizId: playback?.classificationQuizId,
-      knowledgeQuizId: playback?.knowledgeQuizId,
-      chatId: playback?.chatId,
-      showTeacherChat: user?.role != 0 &&
-          module.isEnrolled &&
-          (module.teacher?.id ?? 0) > 0,
-      classificationQuizCompleted:
-          playback?.classificationQuizStatus?.completed ?? false,
-      classificationLevelTitle:
-          playback?.classificationQuizStatus?.levelTitle,
-      knowledgeQuizCompleted:
-          playback?.knowledgeQuizStatus?.completed ?? false,
-      resumePositionSeconds: VideoProgress.resumePositionSeconds(
-        playback?.lastPosition,
-      ),
-      hasTestimonial: playback?.hasTestimonial ?? false,
-      cardsCompleted: playback?.cardsCompleted ?? false,
-    );
-    _cachedData = data;
-
-    if (pendingTrophyLessonId > 0 && pendingTrophyItemId.isNotEmpty) {
-
-      unawaited(
-        _awardTrophyAfterPaint(
-          realLessonId: pendingTrophyLessonId,
-          itemId: pendingTrophyItemId,
-        ),
-      );
-    }
-
-    return data;
   }
 
   Future<void> _awardTrophyAfterPaint({
@@ -278,6 +390,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           teacher: cached.teacher,
           lessonTitle: cached.lessonTitle,
           videoUrl: cached.videoUrl,
+          videoMimeType: cached.videoMimeType,
           videoKind: cached.videoKind,
           thumbnailUrl: cached.thumbnailUrl,
           hasAccess: cached.hasAccess,
@@ -350,9 +463,17 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           final waiting = snapshot.connectionState == ConnectionState.waiting;
 
           if (data != null) {
+            final videoPending = waiting &&
+                (data.videoKind == LessonVideoKind.none ||
+                    data.videoUrl == null ||
+                    data.videoUrl!.isEmpty);
             return Stack(
               children: [
-                _buildContent(context, data),
+                _buildContent(
+                  context,
+                  data,
+                  isLoadingVideo: videoPending,
+                ),
                 if (waiting)
                   const Positioned(
                     top: 12,
@@ -389,7 +510,11 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     );
   }
 
-  Widget _buildContent(BuildContext context, _LessonScreenData data) {
+  Widget _buildContent(
+    BuildContext context,
+    _LessonScreenData data, {
+    bool isLoadingVideo = false,
+  }) {
     final courseId = widget.courseId;
     final unitId = widget.unitId;
     final lessonId = widget.lessonId;
@@ -424,6 +549,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                 lessonId: lessonId,
                 asideTab: _asideTab,
                 onAsideTabChanged: _setAsideTab,
+                isLoadingVideo: isLoadingVideo,
                 onProgressUpdate: _onVideoProgress,
                 onPlaybackEnded: () => _onPlaybackEnded(data),
                 onOpenQuiz: _openQuiz,
@@ -573,6 +699,7 @@ class _LessonScreenData {
     required this.materials,
     required this.lessonTitle,
     required this.videoUrl,
+    this.videoMimeType,
     required this.videoKind,
     required this.thumbnailUrl,
     required this.hasAccess,
@@ -598,6 +725,7 @@ class _LessonScreenData {
   final ModuleTeacher? teacher;
   final String lessonTitle;
   final String? videoUrl;
+  final String? videoMimeType;
   final LessonVideoKind videoKind;
   final String? thumbnailUrl;
   final bool hasAccess;
@@ -656,6 +784,7 @@ class _MainLessonColumn extends StatelessWidget {
     required this.lessonId,
     required this.asideTab,
     required this.onAsideTabChanged,
+    this.isLoadingVideo = false,
     this.onProgressUpdate,
     this.onWatched,
     this.onPlaybackEnded,
@@ -668,6 +797,7 @@ class _MainLessonColumn extends StatelessWidget {
   final String lessonId;
   final LessonAsideTab asideTab;
   final ValueChanged<LessonAsideTab> onAsideTabChanged;
+  final bool isLoadingVideo;
   final ValueChanged<int>? onProgressUpdate;
   final VoidCallback? onWatched;
   final VoidCallback? onPlaybackEnded;
@@ -683,10 +813,12 @@ class _MainLessonColumn extends StatelessWidget {
           title: data.lessonTitle,
           kind: data.videoKind,
           videoUrl: data.videoUrl,
+          mimeType: data.videoMimeType,
           thumbnailUrl: data.thumbnailUrl,
           lessonId: data.realLessonId,
           initialPositionSeconds: data.resumePositionSeconds,
           hasAccess: data.hasAccess,
+          isLoadingVideo: isLoadingVideo,
           onProgressUpdate: onProgressUpdate,
           onWatched: onWatched,
           onPlaybackEnded: onPlaybackEnded,

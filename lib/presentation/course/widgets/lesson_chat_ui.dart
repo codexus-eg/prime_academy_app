@@ -15,6 +15,7 @@ import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/video_source.dart';
 import '../../../data/chat/chat_models.dart';
 
 class LessonChatUser {
@@ -428,13 +429,20 @@ class LessonChatVideoAttachment extends StatefulWidget {
 class _LessonChatVideoAttachmentState extends State<LessonChatVideoAttachment> {
   late final VideoPlayerController _controller;
   var _initialized = false;
+  var _failed = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+    _controller = VideoPlayerController.networkUrl(
+      VideoSource.networkUri(widget.url),
+      httpHeaders: VideoSource.playbackHttpHeaders,
+    )
       ..initialize().then((_) {
         if (mounted) setState(() => _initialized = true);
+      }).catchError((Object error) {
+        debugPrint('[ChatVideo] init failed: $error url=${widget.url}');
+        if (mounted) setState(() => _failed = true);
       })
       ..setVolume(1)
       ..addListener(() {
@@ -450,6 +458,18 @@ class _LessonChatVideoAttachmentState extends State<LessonChatVideoAttachment> {
 
   @override
   Widget build(BuildContext context) {
+    if (_failed) {
+      return const SizedBox(
+        height: AppSpacing.lessonChatMediaMaxHeight,
+        child: Center(
+          child: Text(
+            'تعذّر تشغيل الفيديو',
+            style: TextStyle(color: AppColors.accentIconMuted),
+          ),
+        ),
+      );
+    }
+
     if (!_initialized) {
       return const SizedBox(
         height: AppSpacing.lessonChatMediaMaxHeight,

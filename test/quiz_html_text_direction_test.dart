@@ -64,4 +64,29 @@ void main() {
       ]);
     });
   });
+
+  group('QuizHtmlText.sanitizeHtml / plainText', () {
+    test('strips anchor tags and keeps link label only', () {
+      const html =
+          'Oil can-------up to only 50 <a target="_blank" rel="noopener noreferrer nofollow" href="http://years.lt">years.lt</a>\'s a finite resource of energy';
+      expect(
+        QuizHtmlText.plainText(html),
+        "Oil can-------up to only 50 years.lt's a finite resource of energy",
+      );
+      expect(QuizHtmlText.sanitizeHtml(html).contains('<a'), isFalse);
+      expect(QuizHtmlText.sanitizeHtml(html).contains('href='), isFalse);
+    });
+
+    test('keeps supported formatting tags', () {
+      const html = '<p><strong>Hello</strong> <mark>#00ff00</mark></p>';
+      final sanitized = QuizHtmlText.sanitizeHtml(html);
+      expect(sanitized.contains('<strong>'), isTrue);
+      expect(QuizHtmlText.plainText(html), contains('Hello'));
+    });
+
+    test('drops unknown tags like script/iframe', () {
+      const html = 'Safe <script>alert(1)</script> text';
+      expect(QuizHtmlText.plainText(html), 'Safe alert(1) text');
+    });
+  });
 }

@@ -34,21 +34,22 @@ class RankingTableMetrics {
 
   factory RankingTableMetrics.forWidth(double width) {
     final compact = width < 600;
+    final phone = width < 400;
 
     if (compact) {
-      return const RankingTableMetrics(
-        tablePadding: AppSpacing.base,
-        rowPaddingX: AppSpacing.base,
-        rowPaddingY: AppSpacing.md,
+      return RankingTableMetrics(
+        tablePadding: AppSpacing.md,
+        rowPaddingX: AppSpacing.sm,
+        rowPaddingY: AppSpacing.mdPlus,
         headerPaddingY: AppSpacing.md,
-        gridGap: AppSpacing.md,
-        rankCol: 52,
-        pointsCol: 88,
+        gridGap: AppSpacing.sm,
+        rankCol: phone ? 48 : 56,
+        pointsCol: phone ? 88 : 96,
         avatarSize: 40,
         bodyFontSize: 12,
         headerFontSize: 12,
-        pointsBadgeMinWidth: 44,
-        pointsBadgeHeight: 26,
+        pointsBadgeMinWidth: phone ? 36 : 40,
+        pointsBadgeHeight: 24,
       );
     }
 

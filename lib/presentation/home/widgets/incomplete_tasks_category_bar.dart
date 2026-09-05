@@ -92,9 +92,7 @@ class _CategoryChipState extends State<_CategoryChip> {
           scale: _pressed ? 0.98 : 1,
           duration: AppDurations.tab,
           curve: Curves.easeOut,
-          child: AnimatedContainer(
-            duration: AppDurations.tab,
-            curve: Curves.easeInOut,
+          child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.base,
               vertical: AppSpacing.smPlus,

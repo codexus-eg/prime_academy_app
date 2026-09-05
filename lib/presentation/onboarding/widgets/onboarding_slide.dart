@@ -5,13 +5,18 @@ import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../data/onboarding_assets.dart';
-import 'onboarding_gif_visual.dart';
+import 'onboarding_visual.dart';
 import 'onboarding_shared.dart';
 
 class OnboardingSlide extends StatelessWidget {
-  const OnboardingSlide({super.key, required this.data});
+  const OnboardingSlide({
+    super.key,
+    required this.data,
+    required this.isActive,
+  });
 
   final OnboardingSlideData data;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +48,14 @@ class OnboardingSlide extends StatelessWidget {
               height: 1.35,
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xl),
           Expanded(
-            child: OnboardingGifVisual(asset: data.gifAsset),
+            child: ClipRect(
+              child: OnboardingVisual(
+                asset: data.visualAsset,
+                isActive: isActive,
+              ),
+            ),
           ),
         ],
       ),

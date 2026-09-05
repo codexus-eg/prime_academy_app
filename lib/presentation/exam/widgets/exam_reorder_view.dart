@@ -3,12 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/quiz_answer_image.dart';
-import '../../../core/widgets/quiz_html_text.dart';
+import '../../../core/widgets/quiz_option_text.dart';
 import '../../../data/quizzes/quiz_models.dart';
 import '../../../data/quizzes/unit_quiz_question.dart';
 import '../../classification_quiz/widgets/classification_matching_palette.dart';
@@ -375,33 +374,37 @@ class _DraggableReOrderBox extends StatelessWidget {
 
     if (disabled) return box;
 
-    return Draggable<int>(
-      data: answer.id,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      maxSimultaneousDrags: 1,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Transform.scale(
-          scale: 1.04,
-          child: SizedBox(
-            width: slotWidth,
-            height: slotHeight,
-            child: Opacity(opacity: 0.97, child: box),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final feedbackWidth = constraints.maxWidth;
+        final feedbackHeight = constraints.maxHeight;
+
+        return Draggable<int>(
+          data: answer.id,
+          dragAnchorStrategy: childDragAnchorStrategy,
+          maxSimultaneousDrags: 1,
+          feedback: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: feedbackWidth,
+              height: feedbackHeight,
+              child: Opacity(opacity: 0.97, child: box),
+            ),
           ),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0,
-        child: SizedBox(
-          width: slotWidth,
-          height: slotHeight,
+          childWhenDragging: Opacity(
+            opacity: 0,
+            child: SizedBox(
+              width: feedbackWidth,
+              height: feedbackHeight,
+              child: box,
+            ),
+          ),
+          onDragStarted: () => onDragStarted(answer.id),
+          onDragEnd: (_) => onDragFinished(answer.id),
+          onDraggableCanceled: (_, _) => onDragCanceled(answer.id),
           child: box,
-        ),
-      ),
-      onDragStarted: () => onDragStarted(answer.id),
-      onDragEnd: (_) => onDragFinished(answer.id),
-      onDraggableCanceled: (_, _) => onDragCanceled(answer.id),
-      child: box,
+        );
+      },
     );
   }
 }
@@ -424,14 +427,11 @@ class _ReOrderOptionBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = ClassificationMatchingPalette.forIndex(paletteIndex);
-    final letter = String.fromCharCode(65 + (paletteIndex % 26));
     final displayTitle = answer.displayTitle;
     final imageUrl = answer.imageUrl;
     final hasImage = imageUrl != null && imageUrl.isNotEmpty;
     final hasTitle = displayTitle.isNotEmpty;
 
-    final showLetterBadge =
-        !hasImage && MediaQuery.sizeOf(context).width >= 640;
     final isMobileLayout = MediaQuery.sizeOf(context).width < 768;
     const radius = AppRadius.tailwindXl;
 
@@ -506,34 +506,6 @@ class _ReOrderOptionBox extends StatelessWidget {
                 ),
               ),
             ],
-            if (showLetterBadge)
-              Positioned(
-                top: 12,
-                left: 12,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: palette.border,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: palette.border.withValues(alpha: 0.6),
-                        blurRadius: 8,
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    letter,
-                    style: AppTypography.badge.copyWith(
-                      color: AppColors.onDark,
-                      fontWeight: AppFonts.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
             Positioned.fill(
               child: hasImage
                   ? Stack(
@@ -560,7 +532,7 @@ class _ReOrderOptionBox extends StatelessWidget {
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
-                                child: QuizHtmlText(
+                                child: QuizOptionText(
                                   html: displayTitle,
                                   textAlign: TextAlign.center,
                                   baseStyle: AppTypography.bodyLg.copyWith(
@@ -582,14 +554,9 @@ class _ReOrderOptionBox extends StatelessWidget {
                       ],
                     )
                   : Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        12,
-                        showLetterBadge ? 34 : 12,
-                        12,
-                        12,
-                      ),
+                      padding: const EdgeInsets.all(12),
                       child: Center(
-                        child: QuizHtmlText(
+                        child: QuizOptionText(
                           html: displayTitle,
                           textAlign: TextAlign.center,
                           baseStyle: AppTypography.bodyLg.copyWith(

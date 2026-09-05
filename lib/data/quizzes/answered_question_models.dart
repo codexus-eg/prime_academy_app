@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'quiz_models.dart' show QuizMatchingPrompt, QuizMcqAnswer;
@@ -122,10 +124,10 @@ class AnsweredQuizQuestion {
       }
     }
 
-    final studentRaw = json['student_answer'];
+    final studentRaw = _decodeStudentAnswer(json['student_answer']);
     final studentIds = _parseStudentAnswerIds(studentRaw);
     final studentTexts = _parseStudentAnswerTexts(studentRaw, type);
-    final studentPairs = _parseStudentAnswerPairs(studentRaw);
+    final studentPairs = _parseStudentAnswerPairs(studentRaw, type: type);
 
     final promptsJson = json['prompts'];
     final prompts = promptsJson is List
@@ -148,11 +150,12 @@ class AnsweredQuizQuestion {
         ? QuizTeacherReview.fromJson(reviewJson)
         : null;
 
-    final unanswered = json['not_answered'] == true ||
-        (studentIds.isEmpty &&
-            studentTexts.isEmpty &&
-            studentPairs.isEmpty &&
-            type != 'passage');
+    final unanswered = type != 'passage' &&
+        (json['not_answered'] == true ||
+            (!_hasStudentAnswerPayload(studentRaw) &&
+                studentIds.isEmpty &&
+                studentTexts.isEmpty &&
+                studentPairs.isEmpty));
 
     return AnsweredQuizQuestion(
       id: (json['id'] ?? json['question_id'])?.toString() ?? '',
@@ -253,6 +256,29 @@ List<AnsweredQuizQuestion> parseAnsweredQuestionsList(dynamic raw) {
   return questions;
 }
 
+dynamic _decodeStudentAnswer(dynamic raw) {
+  if (raw is String) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return raw;
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return jsonDecode(trimmed);
+      } catch (_) {
+        return raw;
+      }
+    }
+  }
+  return raw;
+}
+
+bool _hasStudentAnswerPayload(dynamic raw) {
+  if (raw == null) return false;
+  if (raw is List) return raw.isNotEmpty;
+  if (raw is Map) return raw.isNotEmpty;
+  if (raw is String) return raw.trim().isNotEmpty;
+  return true;
+}
+
 List<int> _parseStudentAnswerIds(dynamic raw) {
   if (raw is List) {
     return raw.map(_asInt).where((id) => id > 0).toList();
@@ -276,11 +302,20 @@ List<String> _parseStudentAnswerTexts(dynamic raw, String type) {
   return const [];
 }
 
-Map<int, int> _parseStudentAnswerPairs(dynamic raw) {
+Map<int, int> _parseStudentAnswerPairs(dynamic raw, {String type = ''}) {
   if (raw is Map) {
     return raw.map(
       (key, value) => MapEntry(_asInt(key), _asInt(value)),
     );
+  }
+  // Web and the app both submit re-order as `number[]` (position → answer id).
+  if (raw is List && type == 're-order') {
+    final pairs = <int, int>{};
+    for (var i = 0; i < raw.length; i++) {
+      final id = _asInt(raw[i]);
+      if (id > 0) pairs[i] = id;
+    }
+    return pairs;
   }
   return const {};
 }

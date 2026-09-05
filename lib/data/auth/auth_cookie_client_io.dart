@@ -12,7 +12,7 @@ abstract final class AuthCookieClient {
   }) async {
     final client = HttpClient();
     try {
-      final uri = Uri.parse('${ApiConfig.baseUrl}/auth/login');
+      final uri = Uri.parse('${ApiConfig.baseUrl}/auth/v2/login');
       final request = await client.postUrl(uri);
       request.headers.set('Content-Type', 'application/json');
       request.headers.set('Accept', 'application/json');

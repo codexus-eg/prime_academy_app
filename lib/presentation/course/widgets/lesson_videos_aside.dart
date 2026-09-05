@@ -435,66 +435,57 @@ class _LessonAsideItem extends StatelessWidget {
         hoverColor: AppColors.selectionHover,
         child: SizedBox(
           height: AppSpacing.lessonListItemHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Row(
-                  textDirection: TextDirection.rtl,
-                  children: [
-                    _LessonPlayBadge(
-                      lesson: lesson,
-                      showProgressRing: showProgressRing,
-                      liveProgressPercent: liveProgressPercent,
-                    ),
-                    const SizedBox(width: AppSpacing.base),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            lesson.title,
-                            textDirection: TextDirection.rtl,
-                            textAlign: TextAlign.right,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodyMd.copyWith(
-                              fontWeight: AppFonts.semibold,
-                              color: AppColors.onDark,
-                            ),
-                          ),
-                          if (lesson.duration != null) ...[
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              lesson.duration!,
-                              textDirection: TextDirection.rtl,
-                              style: AppTypography.bodySm.copyWith(
-                                color: AppColors.lessonDurationMuted,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                _LessonPlayBadge(
+                  lesson: lesson,
+                  showProgressRing: showProgressRing,
+                  liveProgressPercent: liveProgressPercent,
                 ),
-              ),
-              if (lesson.hasTrophy && showProgressRing)
-                Positioned(
-                  left: AppSpacing.base,
-                  top: 0,
-                  bottom: 0,
-                  child: Center(
-                    child: LessonActionIcons.svg(
-                      LessonActionIcons.trophy,
-                      size: 24,
-                      color: AppColors.secondary,
-                    ),
+                const SizedBox(width: AppSpacing.base),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lesson.title,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodyMd.copyWith(
+                          fontWeight: AppFonts.semibold,
+                          color: AppColors.onDark,
+                        ),
+                      ),
+                      if (lesson.duration != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          lesson.duration!,
+                          textDirection: TextDirection.rtl,
+                          style: AppTypography.bodySm.copyWith(
+                            color: AppColors.lessonDurationMuted,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-            ],
+                // Keep trophy in-flow so title/duration never paint over it.
+                if (lesson.hasTrophy && showProgressRing) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  LessonActionIcons.svg(
+                    LessonActionIcons.trophy,
+                    size: 24,
+                    color: AppColors.secondary,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

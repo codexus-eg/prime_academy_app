@@ -1,3 +1,5 @@
+import '../../core/utils/answers_direction.dart';
+import '../../core/utils/json_bool.dart';
 import 'quiz_models.dart';
 
 sealed class UnitQuizQuestion {
@@ -5,11 +7,13 @@ sealed class UnitQuizQuestion {
     required this.id,
     required this.title,
     required this.points,
+    this.answersDirection = AnswersDirection.rtl,
   });
 
   final String id;
   final String title;
   final int points;
+  final AnswersDirection answersDirection;
   String get type;
 
   factory UnitQuizQuestion.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,7 @@ class UnitMcqQuestion extends UnitQuizQuestion {
     required super.id,
     required super.title,
     required super.points,
+    super.answersDirection,
     required this.answers,
     required this.correctAnswerIds,
     this.allowMultipleAnswers = false,
@@ -67,6 +72,7 @@ class UnitMcqQuestion extends UnitQuizQuestion {
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       answers: answers,
       correctAnswerIds: correctIds,
       allowMultipleAnswers: json['allow_multiple_answers'] == true,
@@ -79,6 +85,7 @@ class UnitEssayQuestion extends UnitQuizQuestion {
     required super.id,
     required super.title,
     required super.points,
+    super.answersDirection,
     this.markAllAnswersCorrect = false,
     this.correctAnswers = const [],
   });
@@ -102,7 +109,8 @@ class UnitEssayQuestion extends UnitQuizQuestion {
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
-      markAllAnswersCorrect: json['mark_all_answers_correct'] == true,
+      answersDirection: parseAnswersDirection(json['answers_direction']),
+      markAllAnswersCorrect: parseApiBool(json['mark_all_answers_correct']),
       correctAnswers: correctAnswers,
     );
   }
@@ -113,6 +121,7 @@ class UnitFillBlankQuestion extends UnitQuizQuestion {
     required super.id,
     required super.title,
     required super.points,
+    super.answersDirection,
     this.correctAnswers = const [],
   });
 
@@ -134,6 +143,7 @@ class UnitFillBlankQuestion extends UnitQuizQuestion {
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       correctAnswers: correctAnswers,
     );
   }
@@ -144,6 +154,7 @@ class UnitMatchingQuestion extends UnitQuizQuestion {
     required super.id,
     required super.title,
     required super.points,
+    super.answersDirection,
     required this.prompts,
   });
 
@@ -165,6 +176,7 @@ class UnitMatchingQuestion extends UnitQuizQuestion {
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       prompts: prompts,
     );
   }
@@ -192,6 +204,7 @@ class UnitReOrderQuestion extends UnitQuizQuestion {
     required super.id,
     required super.title,
     required super.points,
+    super.answersDirection,
     required this.answers,
     required this.correctAnswers,
     this.sortDirection = 'asc',
@@ -229,6 +242,7 @@ class UnitReOrderQuestion extends UnitQuizQuestion {
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       answers: answers,
       correctAnswers: correctAnswers,
       sortDirection: (json['sortDirection'] as String? ??
@@ -243,6 +257,7 @@ class UnitPassageQuestion extends UnitQuizQuestion {
     required super.id,
     required super.title,
     required super.points,
+    super.answersDirection,
     required this.passages,
     required this.childQuestions,
   });
@@ -271,6 +286,7 @@ class UnitPassageQuestion extends UnitQuizQuestion {
       id: json['id']?.toString() ?? '',
       title: (json['title'] as String? ?? ''),
       points: _asInt(json['points']),
+      answersDirection: parseAnswersDirection(json['answers_direction']),
       passages: passages,
       childQuestions: children,
     );

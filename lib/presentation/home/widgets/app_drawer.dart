@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/auth/auth_navigation.dart';
 import '../../../data/auth/auth_service.dart';
 import '../../../data/auth/auth_session.dart';
 import '../../auth/login_page.dart';
@@ -26,6 +27,8 @@ class _AppDrawerState extends State<AppDrawer> {
   static const double _widthMobile = 300;
   static const double _widthWide = 350;
   static const double _smBreakpoint = 640;
+
+  bool get _isAuthenticated => widget.user != null;
 
   bool get _isStudent => widget.user?.role == 1;
 
@@ -87,12 +90,11 @@ class _AppDrawerState extends State<AppDrawer> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _isDeletingAccount = true);
-    final router = GoRouter.of(context);
     try {
       await AuthService.deleteMyAccount();
       if (!mounted) return;
       _closeDrawer();
-      router.go(LoginPage.routePath);
+      await AuthNavigation.finishLocalSignOut();
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,13 +109,12 @@ class _AppDrawerState extends State<AppDrawer> {
     if (_isLoggingOut) return;
     setState(() => _isLoggingOut = true);
 
-    final router = GoRouter.of(context);
-    await AuthService.logout();
-    if (!mounted) return;
-
-    _closeDrawer();
-
-    router.go(LoginPage.routePath);
+    try {
+      _closeDrawer();
+      await AuthNavigation.signOut();
+    } finally {
+      if (mounted) setState(() => _isLoggingOut = false);
+    }
   }
 
   @override
@@ -137,62 +138,83 @@ class _AppDrawerState extends State<AppDrawer> {
             ),
             Expanded(
               child: Directionality(
-
                 textDirection: TextDirection.ltr,
-                child: SingleChildScrollView(
-
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: _ProfileButton(
-                          onTap: () => _navigate(_profileRedirect),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 24,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (_isAuthenticated) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: _ProfileButton(
+                                  onTap: () => _navigate(_profileRedirect),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ] else ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: _LoginButton(
+                                  onTap: () {
+                                    _closeDrawer();
+                                    context.go(LoginPage.routePath);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                            for (var i = 0; i < NavLinks.links.length; i++) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: _NavLinkRow(
+                                  label: NavLinks.links[i].label,
+                                  icon: _iconForIndex(i),
+                                  onTap: () => _navigate(NavLinks.links[i].to),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                            ],
+                            if (_isStudent) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Divider(
+                                  height: 1,
+                                  thickness: 1,
+                                  color: AppColors.overlayWhite4,
+                                ),
+                              ),
+                              SizedBox(
+                                width: double.infinity,
+                                child: _LogoutButton(
+                                  isLoading: _isLoggingOut,
+                                  onTap: _handleLogout,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-
-                      const SizedBox(height: 4),
-                      for (var i = 0; i < NavLinks.links.length; i++) ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: _NavLinkRow(
-                            label: NavLinks.links[i].label,
-                            icon: _iconForIndex(i),
-                            onTap: () => _navigate(NavLinks.links[i].to),
-                          ),
-                        ),
-                        if (i != NavLinks.links.length - 1)
-                          const SizedBox(height: 4),
-                      ],
-                      if (_isStudent) ...[
-
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: AppColors.overlayWhite4,
-                          ),
-                        ),
-                        SizedBox(
-                          width: double.infinity,
-                          child: _LogoutButton(
-                            isLoading: _isLoggingOut,
-                            onTap: _handleLogout,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
+                    ),
+                    if (_isStudent)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        child: SizedBox(
                           width: double.infinity,
                           child: _DeleteAccountButton(
                             isLoading: _isDeletingAccount,
                             onTap: _handleDeleteAccount,
                           ),
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -205,11 +227,9 @@ class _AppDrawerState extends State<AppDrawer> {
   IconData _iconForIndex(int index) {
     switch (index) {
       case 0:
-        return Icons.home;
-      case 1:
         return Icons.menu_book;
-      case 2:
-        return Icons.emoji_events;
+      case 1:
+        return Icons.mail_outline;
       default:
         return Icons.circle;
     }
@@ -393,6 +413,53 @@ class _ProfileButton extends StatelessWidget {
                   const Icon(Icons.person, color: AppColors.blueLight, size: 18),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginButton extends StatelessWidget {
+  const _LoginButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.transparent,
+      borderRadius: AppRadius.borderTailwindXl,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderTailwindXl,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.rankBlueGlow20, AppColors.blueLightGlow10],
+            ),
+            borderRadius: AppRadius.borderTailwindXl,
+            border: Border.all(color: AppColors.rankBlueBorder30),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'تسجيل الدخول',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontFamily: AppFonts.bahij,
+                    fontSize: 16,
+                    fontWeight: AppFonts.medium,
+                    color: AppColors.onDark,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Icon(Icons.login_rounded, color: AppColors.blueLight, size: 18),
+              ],
             ),
           ),
         ),

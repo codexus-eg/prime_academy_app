@@ -25,7 +25,7 @@ abstract final class LessonEmbedSupport {
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
-  iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none!important}
 </style>
 </head>
 <body>
@@ -34,14 +34,37 @@ abstract final class LessonEmbedSupport {
 <script>
 (function () {
   var resumeAt = $resumeSeconds;
+  window.__cmdQueue = [];
+  window.__playerReady = false;
+  window.__enqueuePlayerCmd = function (fn) {
+    var run = function () {
+      try {
+        var p = window.__player;
+        if (!p) return;
+        fn(p);
+      } catch (e) {}
+    };
+    if (window.__playerReady && window.__player) run();
+    else window.__cmdQueue.push(run);
+  };
+  function flushQueue() {
+    window.__playerReady = true;
+    var q = window.__cmdQueue;
+    window.__cmdQueue = [];
+    for (var i = 0; i < q.length; i++) q[i]();
+  }
   function send(obj) {
     try { BunnyBridge.postMessage(JSON.stringify(obj)); } catch (e) {}
   }
-  function init() {
+  var hasPlayed = false;
+  function bindPlayer() {
     if (!window.playerjs) { send({event:'error'}); return; }
-    var player = new playerjs.Player(document.getElementById('p'));
+    var iframe = document.getElementById('p');
+    if (!iframe) { send({event:'error'}); return; }
+    var player = new playerjs.Player(iframe);
     window.__player = player;
     player.on('ready', function () {
+      flushQueue();
       send({event:'ready'});
       player.getDuration(function (duration) {
         var pos = resumeAt;
@@ -49,12 +72,13 @@ abstract final class LessonEmbedSupport {
         if (pos > 0) player.setCurrentTime(pos);
       });
       player.on('timeupdate', function (data) {
+        if (data.seconds > 1) hasPlayed = true;
         send({event:'timeupdate', seconds: data.seconds, duration: data.duration});
       });
       player.on('play', function () { send({event:'play'}); });
       player.on('pause', function () { send({event:'pause'}); });
       player.on('ended', function () { send({event:'ended'}); });
-      player.on('error', function () { send({event:'error'}); });
+      player.on('error', function () { if (!hasPlayed) send({event:'error'}); });
       player.on('seeked', function () {
         player.getCurrentTime(function (time) {
           player.getDuration(function (duration) {
@@ -64,10 +88,23 @@ abstract final class LessonEmbedSupport {
       });
     });
   }
+  function init() {
+    var iframe = document.getElementById('p');
+    if (!iframe) { send({event:'error'}); return; }
+    var started = false;
+    function startOnce() {
+      if (started) return;
+      started = true;
+      if (!window.playerjs) { send({event:'error'}); return; }
+      bindPlayer();
+    }
+    iframe.addEventListener('load', startOnce, { once: true });
+    setTimeout(startOnce, 1000);
+  }
   if (window.playerjs) init();
   else {
     var s = document.querySelector('script[src*="playerjs"]');
-    if (s) s.onload = init;
+    if (s) s.addEventListener('load', init, { once: true });
     else init();
   }
 })();

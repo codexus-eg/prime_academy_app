@@ -231,6 +231,14 @@ class NotificationStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void reset() {
+    _notifications = [];
+    _groupedNotifications = [];
+    _orderedNotifications = [];
+    newNotification = false;
+    notifyListeners();
+  }
+
   static List<NotificationListItem> _buildOrderedList(
     List<AppNotification> notifications,
     List<GroupedNotification> groupedNotifications,

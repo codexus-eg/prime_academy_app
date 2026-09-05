@@ -7,6 +7,7 @@ import '../../../core/theme/app_shadows.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/quiz_answer_image.dart';
+import '../../../core/widgets/quiz_option_text.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../models/classification_question.dart';
 import 'classification_mcq_card_style.dart';
@@ -48,8 +49,7 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
   void didUpdateWidget(covariant ClassificationMcqView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.question.id != widget.question.id) {
-      _ready = false;
-      _armReady();
+      setState(() => _ready = true);
     }
   }
 
@@ -165,21 +165,17 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
 
           child: Row(
             children: [
-              _LetterBadge(
-                label: String.fromCharCode(65 + index),
-                fill: colors.badgeFill,
-                textColor: colors.text,
-              ),
-              const SizedBox(width: 16),
               Expanded(
-                child: QuizHtmlText(
-                  html: answer.title,
-                  textAlign: TextAlign.right,
-                  baseStyle: AppTypography.bodyLg.copyWith(
-                    color: colors.text,
-                    fontWeight: AppFonts.semibold,
-                    height: 1.35,
-                    fontSize: 14,
+                child: Center(
+                  child: QuizOptionText(
+                    html: answer.title,
+                    baseStyle: AppTypography.bodyLg.copyWith(
+                      color: colors.text,
+                      fontWeight: AppFonts.semibold,
+                      height: 1.35,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
@@ -232,18 +228,6 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
                     ),
                   ),
                   Positioned.fill(child: ColoredBox(color: overlay)),
-                  if (state == ClassificationMcqCardState.idle &&
-                      !widget.isSubmitted)
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      child: _LetterBadge(
-                        label: String.fromCharCode(65 + index),
-                        fill: colors.badgeFill,
-                        textColor: colors.text,
-                        size: 24,
-                      ),
-                    ),
                   if (hasTitle)
                     Positioned(
                       left: 0,
@@ -307,44 +291,6 @@ class _ClassificationMcqViewState extends State<ClassificationMcqView> {
       return ClassificationMcqCardState.wrong;
     }
     return ClassificationMcqCardState.idle;
-  }
-}
-
-class _LetterBadge extends StatelessWidget {
-  const _LetterBadge({
-    required this.label,
-    required this.fill,
-    required this.textColor,
-    this.size = 40,
-  });
-
-  final String label;
-  final Color fill;
-  final Color textColor;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: fill,
-
-        borderRadius: BorderRadius.circular(AppRadius.tailwindSm),
-
-        boxShadow: ClassificationMcqCardStyle.badgeShadow,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: AppTypography.bodyLg.copyWith(
-          color: textColor,
-          fontWeight: AppFonts.bold,
-          fontSize: size < 30 ? 12 : 18,
-        ),
-      ),
-    );
   }
 }
 

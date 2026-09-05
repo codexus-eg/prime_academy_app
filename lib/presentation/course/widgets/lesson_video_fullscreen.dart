@@ -40,34 +40,15 @@ class _LessonVideoFullscreenPageState extends State<LessonVideoFullscreenPage> {
     super.dispose();
   }
 
-  void _close() {
-    widget.onClose?.call();
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Exit is handled by LessonVideoChrome's fullscreen button so it can
+    // auto-hide with the rest of the controls. A permanent IconButton here
+    // would stay visible forever.
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Center(child: widget.child),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                tooltip: 'إغلاق ملء الشاشة',
-                onPressed: _close,
-                icon: const Icon(
-                  Icons.fullscreen_exit_rounded,
-                  color: AppColors.onDark,
-                ),
-              ),
-            ),
-          ],
-        ),
+        child: Center(child: widget.child),
       ),
     );
   }
@@ -133,4 +114,9 @@ Future<void> openLessonVideoFullscreenRoute(
       },
     ),
   );
+}
+
+/// Notifies a pushed fullscreen route when the owning player rebuilds.
+class LessonFullscreenUiTick extends ChangeNotifier {
+  void bump() => notifyListeners();
 }

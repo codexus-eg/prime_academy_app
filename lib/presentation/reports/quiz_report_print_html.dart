@@ -1,6 +1,8 @@
-import 'package:intl/intl.dart';
+import 'package:flutter/widgets.dart' show TextDirection;
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../core/config/cdn_config.dart';
+import '../../core/widgets/quiz_html_text.dart';
 import '../../data/quizzes/answered_question_display.dart';
 import '../../data/quizzes/answered_question_models.dart';
 
@@ -350,11 +352,13 @@ abstract final class QuizReportPrintHtml {
         ..writeln('<tr class="$rowClass">')
         ..writeln('<td class="num-cell">${_escape(item.number)}</td>')
         ..writeln('<td>')
-        ..writeln('<div class="q-title">${_escape(title)}</div>')
+        ..writeln(
+          '<div class="q-title" dir="${_dirOf(title)}">${_escape(title)}</div>',
+        )
         ..writeln('<div class="student-box"><div class="student-row">')
         ..writeln('<span class="student-label">إجابة الطالب:</span>')
         ..writeln(
-          '<span class="${isCorrect ? "student-ok" : "student-plain"}">'
+          '<span class="${isCorrect ? "student-ok" : "student-plain"}" dir="${_dirOf(student)}">'
           '${_escape(student)}</span>',
         )
         ..writeln('</div></div></td>')
@@ -374,7 +378,7 @@ abstract final class QuizReportPrintHtml {
           )
           ..writeln(
             '<div class="correct-hint"><strong>الإجابة الصحيحة: </strong>'
-            '<span class="ans">${_escape(correct.isEmpty ? "-" : correct)}</span></div>',
+            '<span class="ans" dir="${_dirOf(correct)}">${_escape(correct.isEmpty ? "-" : correct)}</span></div>',
           );
       }
 
@@ -423,6 +427,12 @@ abstract final class QuizReportPrintHtml {
       }
     }
     return rows;
+  }
+
+  static String _dirOf(String text) {
+    return QuizHtmlText.detectTextDirection(text) == TextDirection.rtl
+        ? 'rtl'
+        : 'ltr';
   }
 
   static String _escape(String input) {

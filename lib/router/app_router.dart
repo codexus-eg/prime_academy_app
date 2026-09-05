@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/auth/auth_controller.dart';
+import '../../../data/auth/auth_redirect.dart';
 import '../core/theme/app_colors.dart';
 import '../presentation/auth/login_page.dart';
 import '../presentation/onboarding/onboarding_page.dart';
@@ -17,6 +19,7 @@ import '../presentation/luck_cards/luck_cards_page.dart';
 import '../presentation/about/about_page.dart';
 import '../presentation/contact/contact_page.dart';
 import '../presentation/home/home_page.dart';
+import '../presentation/home/ranking/ranking_open_signal.dart';
 import '../presentation/home/tabs/home_awards_tab.dart';
 import '../presentation/home/tabs/home_courses_tab.dart';
 import '../presentation/home/tabs/home_ranking_tab.dart';
@@ -30,6 +33,8 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GoRouter appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: SplashPage.routePath,
+  refreshListenable: AuthController.instance,
+  redirect: authRedirect,
   routes: [
     GoRoute(
       path: SplashPage.routePath,
@@ -193,36 +198,54 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: HomeTab.courses.segment,
               name: 'home-courses',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomeCoursesTab(),
+              pageBuilder: (context, state) => NoTransitionPage<void>(
+                child: const HomeCoursesTab(),
               ),
             ),
             GoRoute(
               path: HomeTab.reports.segment,
               name: 'home-reports',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomeReportsTab(),
+              pageBuilder: (context, state) => NoTransitionPage<void>(
+                child: const HomeReportsTab(),
               ),
             ),
             GoRoute(
               path: HomeTab.ranking.segment,
               name: 'home-ranking',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomeRankingTab(),
-              ),
+              pageBuilder: (context, state) {
+                final rawCourseId = state.uri.queryParameters['course_id'];
+                final routeCourseId =
+                    rawCourseId != null ? int.tryParse(rawCourseId) : null;
+                // Remount on each RankingOpenSignal bump (notification from
+                // lesson) and on course_id query changes (dropdown).
+                return NoTransitionPage<void>(
+                  child: ListenableBuilder(
+                    listenable: RankingOpenSignal.instance,
+                    builder: (context, _) {
+                      return HomeRankingTab(
+                        key: ValueKey(
+                          'ranking-g${RankingOpenSignal.instance.generation}'
+                          '-${state.uri.query}',
+                        ),
+                        routeCourseId: routeCourseId,
+                      );
+                    },
+                  ),
+                );
+              },
             ),
             GoRoute(
               path: HomeTab.awards.segment,
               name: 'home-awards',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomeAwardsTab(),
+              pageBuilder: (context, state) => NoTransitionPage<void>(
+                child: const HomeAwardsTab(),
               ),
             ),
             GoRoute(
               path: HomeTab.incompleteTasks.segment,
               name: 'home-incomplete-tasks',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomeIncompleteTasksTab(),
+              pageBuilder: (context, state) => NoTransitionPage<void>(
+                child: const HomeIncompleteTasksTab(),
               ),
             ),
           ],

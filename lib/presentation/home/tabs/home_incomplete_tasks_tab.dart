@@ -10,6 +10,7 @@ import '../../../data/students/student_profile.dart';
 import '../../../data/students/students_api.dart';
 import '../models/incomplete_task.dart';
 import '../models/incomplete_task_mapper.dart';
+import '../ranking/home_refresh_signal.dart';
 import '../student_profile_scope.dart';
 import '../widgets/incomplete_task_card.dart';
 import '../widgets/incomplete_tasks_all_complete.dart';
@@ -31,7 +32,30 @@ class _HomeIncompleteTasksTabState extends State<HomeIncompleteTasksTab> {
 
   var _loading = false;
   var _hasError = false;
+  var _homeRefreshGeneration = HomeRefreshSignal.instance.generation;
   StudentIncompleteProgressReport? _report;
+
+  @override
+  void initState() {
+    super.initState();
+    HomeRefreshSignal.instance.addListener(_onHomeRefreshRequested);
+  }
+
+  @override
+  void dispose() {
+    HomeRefreshSignal.instance.removeListener(_onHomeRefreshRequested);
+    super.dispose();
+  }
+
+  void _onHomeRefreshRequested() {
+    if (!mounted) return;
+    final generation = HomeRefreshSignal.instance.generation;
+    if (generation == _homeRefreshGeneration) return;
+    _homeRefreshGeneration = generation;
+    if (_selectedCourseId != null) {
+      _loadProgress(showLoadingShell: false);
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -50,14 +74,16 @@ class _HomeIncompleteTasksTabState extends State<HomeIncompleteTasksTab> {
     }
   }
 
-  Future<void> _loadProgress() async {
+  Future<void> _loadProgress({bool showLoadingShell = true}) async {
     final courseId = _selectedCourseId;
     if (courseId == null) return;
 
-    setState(() {
-      _loading = true;
-      _hasError = false;
-    });
+    if (showLoadingShell || _report == null) {
+      setState(() {
+        _loading = true;
+        _hasError = false;
+      });
+    }
 
     try {
       final report = await StudentsApi.fetchIncompleteProgressDetails(courseId);

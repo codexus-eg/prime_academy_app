@@ -91,13 +91,16 @@ class _RankingStudentRowState extends State<RankingStudentRow> {
                 width: metrics.pointsCol,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _PointsBadge(
-                      points: student.points,
-                      rank: student.rank,
-                      metrics: metrics,
+                    Flexible(
+                      child: _PointsBadge(
+                        points: student.points,
+                        rank: student.rank,
+                        metrics: metrics,
+                      ),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
+                    const SizedBox(width: AppSpacing.xs),
                     RankingTrophyIcon(rank: student.rank),
                   ],
                 ),
@@ -221,7 +224,7 @@ class _StudentName extends StatelessWidget {
     return Row(
       textDirection: TextDirection.rtl,
       children: [
-        Flexible(
+        Expanded(
           child: Text(
             name,
             maxLines: 1,
@@ -238,7 +241,7 @@ class _StudentName extends StatelessWidget {
           ),
         ),
         if (isCurrentStudent) ...[
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: AppSpacing.xs),
           const _YouBadge(),
         ],
       ],

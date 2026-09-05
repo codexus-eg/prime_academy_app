@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/answers_direction.dart';
 import '../../../core/widgets/quiz_html_text.dart';
 import '../../../data/quizzes/quiz_models.dart';
 import '../../../data/quizzes/unit_quiz_question.dart';
@@ -40,6 +41,11 @@ class UnitExamQuestionPanel extends StatefulWidget {
     this.onMcqSelect,
     this.onMarkPassageChild,
     this.onPassageComplete,
+    /// Server grade for the active answer (`response.result.correct`).
+    /// Used as the single source of truth for essay/fill UI + colors.
+    this.gradedCorrect,
+    /// Bumped when submit fails so the panel can re-enable input.
+    this.gradeResetToken = 0,
   });
 
   final UnitQuizQuestion question;
@@ -53,6 +59,8 @@ class UnitExamQuestionPanel extends StatefulWidget {
   final ValueChanged<int>? onMcqSelect;
   final ExamPassageMarkChild? onMarkPassageChild;
   final Future<void> Function()? onPassageComplete;
+  final bool? gradedCorrect;
+  final int gradeResetToken;
 
   @override
   State<UnitExamQuestionPanel> createState() => _UnitExamQuestionPanelState();
@@ -65,6 +73,9 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
   bool? _revealedCorrect;
   List<String> _revealedAnswers = const [];
   var _revealedFillChars = false;
+  var _awaitingGrade = false;
+  List<String> _pendingRevealAnswers = const [];
+  var _pendingRevealFillChars = false;
 
   UnitQuizQuestion get _activeQuestion {
     final q = widget.question;
@@ -103,6 +114,13 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       _canSubmit = false;
       _matchingDragActive = false;
       _clearReveal();
+      return;
+    }
+    if (oldWidget.gradeResetToken != widget.gradeResetToken) {
+      _cancelAwaitingGrade();
+    }
+    if (oldWidget.gradedCorrect != widget.gradedCorrect) {
+      _applyGradedCorrect(widget.gradedCorrect);
     }
   }
 
@@ -110,6 +128,29 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
     _revealedCorrect = null;
     _revealedAnswers = const [];
     _revealedFillChars = false;
+    _awaitingGrade = false;
+    _pendingRevealAnswers = const [];
+    _pendingRevealFillChars = false;
+  }
+
+  void _applyGradedCorrect(bool? graded) {
+    if (graded == null) {
+      // Do not clear `_awaitingGrade` here — a null grade while awaiting means
+      // the API has not returned yet (or a previous grade was reset).
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _revealedCorrect = graded;
+      _revealedAnswers = _pendingRevealAnswers;
+      _revealedFillChars = _pendingRevealFillChars;
+      _awaitingGrade = false;
+    });
+  }
+
+  void _cancelAwaitingGrade() {
+    if (!_awaitingGrade && _revealedCorrect == null) return;
+    setState(_clearReveal);
   }
 
   List<String> _plainAnswers(Iterable<dynamic> answers) {
@@ -119,34 +160,40 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
         .toList();
   }
 
-  void _revealEssay(UnitEssayQuestion essay, String text) {
-    final answers = _plainAnswers(essay.correctAnswers);
-    final correct = essay.markAllAnswersCorrect ||
-        answers.any((a) => a.toLowerCase() == text.trim().toLowerCase());
+  void _beginAwaitingGrade({
+    required List<String> answers,
+    required bool fillChars,
+  }) {
     setState(() {
-      _revealedCorrect = correct;
-      _revealedAnswers = answers;
+      _awaitingGrade = true;
+      _pendingRevealAnswers = answers;
+      _pendingRevealFillChars = fillChars;
+      _revealedCorrect = null;
+      _revealedAnswers = const [];
       _revealedFillChars = false;
-    });
-  }
-
-  void _revealFill(UnitFillBlankQuestion fill, bool correct) {
-    setState(() {
-      _revealedCorrect = correct;
-      _revealedAnswers = _plainAnswers(fill.correctAnswers);
-      _revealedFillChars = true;
     });
   }
 
   Widget _headerFor(UnitQuizQuestion question) {
     final revealed = _revealedCorrect;
-    final showResult = revealed != null &&
-        (question is UnitEssayQuestion || question is UnitFillBlankQuestion);
-    if (showResult) {
+    if (revealed != null && question is UnitEssayQuestion) {
       return ExamAnswerResultCard(
         key: ValueKey('result-${question.id}-$revealed'),
         isCorrect: revealed,
         answers: _revealedAnswers,
+        answersDirection: question.answersDirection,
+        showAsFillChars: false,
+      );
+    }
+    // Web FillBlankQuestion: AnswerResultCard only when wrong.
+    final showFillResult =
+        revealed == false && question is UnitFillBlankQuestion;
+    if (showFillResult) {
+      return ExamAnswerResultCard(
+        key: ValueKey('result-${question.id}-$revealed'),
+        isCorrect: false,
+        answers: _revealedAnswers,
+        answersDirection: question.answersDirection,
         showAsFillChars: _revealedFillChars,
       );
     }
@@ -299,12 +346,16 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       UnitEssayQuestion essay => _EssayView(
           key: ValueKey(essay.id),
           questionTitle: essay.title,
-          isSubmitted: _revealedCorrect != null,
+          answersDirection: essay.answersDirection,
+          isSubmitted: _awaitingGrade || _revealedCorrect != null,
           isCorrect: _revealedCorrect,
           onSubmitReady: _registerSubmitHandler,
           onAnswerChange: _updateCanSubmit,
           onSubmit: (text) {
-            _revealEssay(essay, text);
+            _beginAwaitingGrade(
+              answers: _plainAnswers(essay.correctAnswers),
+              fillChars: false,
+            );
             submit(
               questionId: essay.id,
               type: 'essay',
@@ -323,9 +374,7 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
           onSubmit: (order) => submit(
                 questionId: reorder.id,
                 type: 're-order',
-                answers: {
-                  for (var i = 0; i < order.length; i++) '$i': order[i],
-                },
+                answers: order,
               ),
         ),
       UnitPassageQuestion passage => Center(
@@ -410,12 +459,20 @@ class _UnitExamQuestionPanelState extends State<UnitExamQuestionPanel> {
       examStyle: true,
       onSubmitReady: _registerSubmitHandler,
       onAnswerChange: _updateCanSubmit,
-      onCorrectChange: (correct) => _revealFill(fill, correct),
-      onAnswered: (text) => submit(
-        questionId: fill.id,
-        type: 'fill-blank',
-        answers: [text],
-      ),
+      onCorrectChange: (_) {
+        // Result-card / unified grade comes from API `gradedCorrect`.
+      },
+      onAnswered: (text) {
+        _beginAwaitingGrade(
+          answers: _plainAnswers(fill.correctAnswers),
+          fillChars: true,
+        );
+        submit(
+          questionId: fill.id,
+          type: 'fill-blank',
+          answers: [text],
+        );
+      },
     );
   }
 
@@ -456,6 +513,7 @@ class _EssayView extends StatefulWidget {
   const _EssayView({
     super.key,
     required this.questionTitle,
+    required this.answersDirection,
     required this.onSubmitReady,
     required this.onAnswerChange,
     required this.onSubmit,
@@ -464,6 +522,7 @@ class _EssayView extends StatefulWidget {
   });
 
   final String questionTitle;
+  final AnswersDirection answersDirection;
   final ValueChanged<VoidCallback> onSubmitReady;
   final ValueChanged<bool> onAnswerChange;
   final ValueChanged<String> onSubmit;
@@ -490,15 +549,25 @@ class _EssayViewState extends State<_EssayView> {
   }
 
   void _submit() {
+    if (widget.isSubmitted) return;
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     widget.onSubmit(text);
   }
 
   @override
+  void didUpdateWidget(covariant _EssayView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isSubmitted && !oldWidget.isSubmitted) {
+      widget.onAnswerChange(false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ExamEssayInput(
       questionTitle: widget.questionTitle,
+      answersDirection: widget.answersDirection,
       controller: _controller,
       onAnswerChange: widget.onAnswerChange,
       isSubmitted: widget.isSubmitted,

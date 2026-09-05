@@ -9,8 +9,8 @@ abstract final class AppDurations {
   static const Duration homeTabContentExit = Duration(milliseconds: 150);
   static const double homeTabContentSlidePx = 10;
   static const Duration unitExpand = Duration(milliseconds: 250);
-  static const Duration onboardingPage = Duration(milliseconds: 320);
-  static const Duration onboardingIndicator = Duration(milliseconds: 250);
+  static const Duration onboardingPage = Duration(milliseconds: 220);
+  static const Duration onboardingIndicator = Duration(milliseconds: 180);
   static const Duration splashFrame = Duration(milliseconds: 500);
   static const Duration luckFeedback = Duration(milliseconds: 280);
   static const Duration luckAnswerDelay = Duration(milliseconds: 1200);

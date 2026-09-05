@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -6,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_fonts.dart';
+import '../data/lesson_progress_sounds.dart';
 
 class WobblyCircle extends StatefulWidget {
   const WobblyCircle({
@@ -111,6 +113,9 @@ class _WobblyCircleState extends State<WobblyCircle>
       return;
     }
 
+    LessonProgressSounds.resetTickTracking();
+    unawaited(LessonProgressSounds.playIncreaseStart());
+
     final startFrom = _displayScore;
     _counterTicker?.dispose();
     _counterFrom = startFrom;
@@ -125,12 +130,18 @@ class _WobblyCircleState extends State<WobblyCircle>
     final eased = 1 - (1 - t) * (1 - t) * (1 - t);
     final current =
         (_counterFrom + (_counterTo - _counterFrom) * eased).round();
+    if (current != _displayScore) {
+      unawaited(LessonProgressSounds.playCounterTick(current));
+    }
     setState(() => _displayScore = current);
     if (t >= 1) {
       _counterTicker?.dispose();
       _counterTicker = null;
       _prevScore = _counterTo;
       setState(() => _displayScore = _counterTo);
+      if (_counterTo >= 100) {
+        unawaited(LessonProgressSounds.playComplete());
+      }
     }
   }
 

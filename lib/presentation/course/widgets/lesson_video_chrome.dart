@@ -103,13 +103,16 @@ class _LessonVideoChromeState extends State<LessonVideoChrome> {
     if (error != null) {
       return _ErrorOverlay(message: error, onRetry: widget.onRetry);
     }
-    if (widget.loading && !widget.started) {
-      return const _LoadingOverlay();
-    }
     if (!widget.started) {
-      return _Poster(
-        thumbnailUrl: widget.thumbnailUrl,
-        onPlay: widget.onTogglePlay,
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          _Poster(
+            thumbnailUrl: widget.thumbnailUrl,
+            onPlay: widget.onTogglePlay,
+          ),
+          if (widget.loading) const _LoadingOverlay(),
+        ],
       );
     }
 

@@ -6,6 +6,7 @@ import '../../../data/students/student_awards.dart';
 import '../../../data/students/student_awards_cache.dart';
 import '../../../data/students/students_api.dart';
 import '../models/award_carousel_item.dart';
+import '../ranking/home_refresh_signal.dart';
 import '../student_profile_scope.dart';
 import '../widgets/award_badge_card.dart';
 import '../widgets/awards_celebration_overlay.dart';
@@ -22,6 +23,7 @@ class _HomeAwardsTabState extends State<HomeAwardsTab> {
   StudentAwards? _awards;
   var _showCelebration = false;
   var _celebrationPlayed = false;
+  var _homeRefreshGeneration = HomeRefreshSignal.instance.generation;
 
   int? get _studentId => StudentProfileScope.maybeOf(context)?.profile?.id;
 
@@ -40,6 +42,27 @@ class _HomeAwardsTabState extends State<HomeAwardsTab> {
       _applyCelebration(cached);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshAwardsIfNeeded());
+    HomeRefreshSignal.instance.addListener(_onHomeRefreshRequested);
+  }
+
+  @override
+  void dispose() {
+    HomeRefreshSignal.instance.removeListener(_onHomeRefreshRequested);
+    super.dispose();
+  }
+
+  void _onHomeRefreshRequested() {
+    if (!mounted) return;
+    final generation = HomeRefreshSignal.instance.generation;
+    if (generation == _homeRefreshGeneration) return;
+    _homeRefreshGeneration = generation;
+
+    final cached = StudentAwardsCache.awards;
+    if (cached != null) {
+      setState(() => _awards = cached);
+    } else {
+      _loadAwards();
+    }
   }
 
   @override
@@ -52,9 +75,8 @@ class _HomeAwardsTabState extends State<HomeAwardsTab> {
   }
 
   void _applyCelebration(StudentAwards awards) {
-    final shouldCelebrate = !_celebrationPlayed &&
-        awards.studentClassificationLevels.isNotEmpty &&
-        awards.hasAwards;
+    // Web Awards.tsx: celebrate when certificates OR classification levels exist.
+    final shouldCelebrate = !_celebrationPlayed && awards.hasAwards;
 
     if (!shouldCelebrate) return;
 

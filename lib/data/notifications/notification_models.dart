@@ -48,19 +48,23 @@ class NotificationData {
   final String? url;
 
   factory NotificationData.fromJson(Map<String, dynamic> json) {
+    final link = json['link'] as String? ?? '';
     return NotificationData(
       title: json['title'] as String? ??
           json['message'] as String? ??
           '',
-      link: json['link'] as String? ?? '',
+      link: link,
       chatId: _intOrNull(json['chatId'] ?? json['chat_id']),
       itemId: _intOrNull(json['itemId'] ?? json['item_id']),
       lessonId: _intOrNull(json['lessonId'] ?? json['lesson_id']),
-      courseId: _intOrNull(json['courseId'] ?? json['course_id']),
+      courseId: _intOrNull(json['courseId'] ?? json['course_id']) ??
+          courseIdFromLink(link),
       moduleId: _intOrNull(json['moduleId'] ?? json['module_id']),
       url: json['url'] as String?,
     );
   }
+
+  static int? courseIdFromLink(String link) => _courseIdFromLink(link);
 }
 
 class AppNotification {
@@ -160,4 +164,12 @@ int? _intOrNull(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
   return int.tryParse(value.toString());
+}
+
+int? _courseIdFromLink(String link) {
+  if (link.isEmpty) return null;
+  final uri = Uri.tryParse(link);
+  final raw = uri?.queryParameters['course_id'];
+  if (raw == null || raw.isEmpty) return null;
+  return int.tryParse(raw);
 }

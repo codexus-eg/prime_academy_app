@@ -1,3 +1,4 @@
+import 'essay_answer_validation.dart';
 import 'knowledge_quiz_question.dart';
 
 abstract final class KnowledgeAnswerValidation {
@@ -26,12 +27,15 @@ abstract final class KnowledgeAnswerValidation {
     return question.correctAnswerIds.every(answerIds.contains);
   }
 
-  static bool _essayCorrect(KnowledgeEssayQuestion question, List<String> answers) {
-    if (question.markAllAnswersCorrect) return true;
+  static bool _essayCorrect(
+    KnowledgeEssayQuestion question,
+    List<String> answers,
+  ) {
     if (answers.isEmpty) return false;
-    final student = answers.first.trim().toLowerCase();
-    return question.correctAnswers.any(
-      (answer) => answer.title.trim().toLowerCase() == student,
+    return EssayAnswerValidation.isCorrect(
+      markAllAnswersCorrect: question.markAllAnswersCorrect,
+      correctTitles: question.correctAnswers.map((a) => a.title),
+      studentAnswer: answers.first,
     );
   }
 

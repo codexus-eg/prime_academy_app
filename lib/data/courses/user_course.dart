@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/config/api_config.dart';
 import '../../core/config/cdn_config.dart';
 import '../../core/utils/video_source.dart';
@@ -288,6 +290,7 @@ class LessonPlayback {
     required this.accessWithoutEnrollment,
     required this.kind,
     this.videoUrl,
+    this.videoMimeType,
     this.thumbnailUrl,
     this.cards = const [],
     this.classificationQuizId,
@@ -308,6 +311,7 @@ class LessonPlayback {
   final bool accessWithoutEnrollment;
 
   final String? videoUrl;
+  final String? videoMimeType;
   final String? thumbnailUrl;
   final LessonVideoKind kind;
 
@@ -343,6 +347,11 @@ class LessonPlayback {
     }
 
     final kind = VideoSource.classify(mimeType: mime, videoUrl: url);
+    debugPrint(
+      '[LessonPlayback] id=${json['id']} kind=$kind '
+      'format=${VideoSource.detectFormatLabel(url, mime)} '
+      'mime=$mime url=$url',
+    );
 
     final cardsJson = json['cards'];
     final cards = cardsJson is List
@@ -361,6 +370,7 @@ class LessonPlayback {
       accessWithoutEnrollment: json['access_without_enrollment'] == true,
       kind: kind,
       videoUrl: url,
+      videoMimeType: mime,
       thumbnailUrl: thumbnail is Map<String, dynamic> &&
               (thumbnail['url'] as String?)?.isNotEmpty == true
           ? CdnConfig.mediaUrl(thumbnail['url'] as String)

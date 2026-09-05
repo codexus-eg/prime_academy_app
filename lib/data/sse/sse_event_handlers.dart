@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../auth/auth_session.dart';
+import '../auth/auth_navigation.dart';
 import '../chat/chat_models.dart';
 import '../notifications/notification_models.dart';
 import '../notifications/notification_store.dart';
@@ -28,8 +28,7 @@ abstract final class SseEventHandlers {
   }
 
   static Future<void> _handleInvalidToken() async {
-    await AuthSession.clear();
-    onInvalidToken?.call();
+    await AuthNavigation.signOut();
   }
 
   static void handleNewNotification(String raw) {

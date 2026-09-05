@@ -1,13 +1,18 @@
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 
+import '../../app/app_bootstrap.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../data/auth/auth_service.dart';
+import '../../data/auth/auth_controller.dart';
+import '../../data/onboarding/onboarding_storage.dart';
 import '../../data/students/home_bootstrap.dart';
+import '../auth/login_page.dart';
 import '../home/widgets/notification_navigator.dart';
 import '../onboarding/onboarding_page.dart';
 import 'data/splash_frames.dart';
@@ -28,6 +33,9 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppBootstrap.releaseFirstFrameIfDeferred();
+    });
     _runSequence();
   }
 
@@ -44,7 +52,9 @@ class _SplashPageState extends State<SplashPage> {
       return;
     }
 
-    context.go(OnboardingPage.routePath);
+    final onboardingDone = await OnboardingStorage.isCompleted();
+    if (!mounted) return;
+    context.go(onboardingDone ? LoginPage.routePath : OnboardingPage.routePath);
   }
 
   Future<void> _playAnimation() async {
@@ -58,10 +68,19 @@ class _SplashPageState extends State<SplashPage> {
 
   /// Restore the session and warm home images before leaving splash.
   Future<bool> _bootstrapSessionAndAssets() async {
-    await WidgetsBinding.instance.endOfFrame;
+    // media_kit / libmpv for mobile: lesson MP4 uses it directly; chat
+    // video_player widgets use it via VideoPlayerMediaKit.
+    if (!kIsWeb) {
+      VideoPlayerMediaKit.ensureInitialized(
+        android: true,
+        iOS: true,
+      );
+    }
+
+    await AuthController.instance.hydrate();
     if (!mounted) return false;
 
-    final restored = await AuthService.restoreSession();
+    final restored = AuthController.instance.isAuthenticated;
     if (!restored || !mounted) return restored;
 
     try {

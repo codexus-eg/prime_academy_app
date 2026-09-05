@@ -148,11 +148,12 @@ class _NotificationDropdownState extends State<NotificationDropdown>
 
   Future<void> _markAsRead(List<int> ids) async {
     if (ids.isEmpty) return;
+    // Optimistic update so the unread→read fade is visible (web transition-all).
+    if (!mounted) return;
+    setState(() => _store.markAsRead(ids));
+    _overlayEntry?.markNeedsBuild();
     try {
       await NotificationsApi.markRead(ids);
-      if (!mounted) return;
-      setState(() => _store.markAsRead(ids));
-      _overlayEntry?.markNeedsBuild();
     } on ApiException {
       return;
     }
@@ -172,8 +173,16 @@ class _NotificationDropdownState extends State<NotificationDropdown>
     }
   }
 
+  bool _itemWasUnread(NotificationListItem item) {
+    return switch (item) {
+      IndividualNotificationItem(:final notification) => !notification.isRead,
+      GroupNotificationItem(:final group) => group.unreadCount > 0,
+    };
+  }
+
   Future<void> _openItem(NotificationListItem item) async {
     final target = NotificationLink.forItem(item);
+    final showFade = _itemWasUnread(item);
     switch (item) {
       case GroupNotificationItem(:final group):
         await _handleGroupTap(group.groupType, group.groupId);
@@ -181,6 +190,11 @@ class _NotificationDropdownState extends State<NotificationDropdown>
         await _handleItemTap(notification);
     }
     if (!mounted) return;
+    // Let border/icon color fade (300ms) before leaving, matching web.
+    if (showFade) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+    }
     _close();
     await NotificationNavigator.open(context, target);
   }
@@ -399,6 +413,11 @@ class _NotificationTile extends StatelessWidget {
   final NotificationListItem item;
   final Future<void> Function(NotificationListItem item) onOpen;
 
+  NotificationType get _type => switch (item) {
+        IndividualNotificationItem(:final notification) => notification.type,
+        GroupNotificationItem(:final group) => group.groupType,
+      };
+
   @override
   Widget build(BuildContext context) {
     return switch (item) {
@@ -406,7 +425,6 @@ class _NotificationTile extends StatelessWidget {
           isUnread: group.unreadCount > 0,
           isMasteryCard: false,
           isGroup: true,
-          icon: NotificationIcons.forItem(item, isUnread: group.unreadCount > 0),
           title: group.title,
           subtitle: group.unreadCount > 0
               ? '${group.unreadCount} غير مقروءة'
@@ -419,10 +437,6 @@ class _NotificationTile extends StatelessWidget {
           isMasteryCard:
               notification.type == NotificationType.newKnowledgeQuizPoints,
           isGroup: false,
-          icon: NotificationIcons.forItem(
-            item,
-            isUnread: !notification.isRead,
-          ),
           title: NotificationIcons.titles[notification.type] ??
               notification.data.title,
           subtitle: notification.data.title,
@@ -436,12 +450,14 @@ class _NotificationTile extends StatelessWidget {
     required bool isUnread,
     required bool isMasteryCard,
     required bool isGroup,
-    required Widget icon,
     required String title,
     required String? subtitle,
     required bool subtitleIsAccent,
     required Future<void> Function() onTap,
   }) {
+    final unreadColor = NotificationStyles.accentUnread;
+    final readColor = NotificationStyles.iconRead;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -452,6 +468,7 @@ class _NotificationTile extends StatelessWidget {
         highlightColor: NotificationStyles.itemBackgroundHover,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: NotificationStyles.itemBackground,
@@ -465,14 +482,29 @@ class _NotificationTile extends StatelessWidget {
               ),
             ),
           ),
-          child: Opacity(
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
             opacity: isMasteryCard && !isUnread ? 0.6 : 1,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: icon,
+                  child: TweenAnimationBuilder<Color?>(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    tween: ColorTween(
+                      end: isUnread ? unreadColor : readColor,
+                    ),
+                    builder: (context, color, _) {
+                      return NotificationIcons.forType(
+                        _type,
+                        isUnread: isUnread,
+                        color: color,
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(

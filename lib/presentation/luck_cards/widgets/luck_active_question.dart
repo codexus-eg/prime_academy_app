@@ -113,38 +113,47 @@ class _LuckActiveQuestionState extends State<LuckActiveQuestion> {
     );
   }
 
-  Widget _buildAnswerBody(double answersWidth, double answerCellSize) {
+  Widget _buildAnswerBody(double answersWidth) {
     return switch (widget.question) {
       KnowledgeMcqQuestion mcq => SizedBox(
           width: answersWidth,
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              mainAxisExtent: answerCellSize,
-            ),
-            itemCount: mcq.answers.length,
-            itemBuilder: (context, index) {
-              const palettes = [
-                LuckAnswerPaletteSlot.pink,
-                LuckAnswerPaletteSlot.blue,
-                LuckAnswerPaletteSlot.violet,
-                LuckAnswerPaletteSlot.orange,
-              ];
-              return LuckAnswerButton(
-                option: LuckAnswerOption(
-                  text: mcq.answers[index].title,
-                  palette: palettes[index % palettes.length],
-                ),
-                index: index,
-                state: _visualState(mcq, index),
-                compact: answerCellSize < 120,
-                onTap: widget.answered
-                    ? null
-                    : () => widget.onMcqAnswer(index),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 16.0;
+              final cellWidth = ((constraints.maxWidth - gap) / 2)
+                  .clamp(72.0, 220.0)
+                  .toDouble();
+              final compact = cellWidth < 120;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (var index = 0; index < mcq.answers.length; index++)
+                    SizedBox(
+                      width: cellWidth,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: cellWidth),
+                        child: LuckAnswerButton(
+                          option: LuckAnswerOption(
+                            text: mcq.answers[index].title,
+                            palette: const [
+                              LuckAnswerPaletteSlot.pink,
+                              LuckAnswerPaletteSlot.blue,
+                              LuckAnswerPaletteSlot.violet,
+                              LuckAnswerPaletteSlot.orange,
+                            ][index % 4],
+                          ),
+                          index: index,
+                          state: _visualState(mcq, index),
+                          compact: compact,
+                          onTap: widget.answered
+                              ? null
+                              : () => widget.onMcqAnswer(index),
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -152,6 +161,7 @@ class _LuckActiveQuestionState extends State<LuckActiveQuestion> {
       KnowledgeEssayQuestion essay => LuckKnowledgeEssayView(
           question: essay,
           answered: widget.answered,
+          isCorrect: widget.isCorrect,
           onSubmit: widget.onTextSubmit,
         ),
       KnowledgeFillBlankQuestion fill => SizedBox(
@@ -194,12 +204,9 @@ class _LuckActiveQuestionState extends State<LuckActiveQuestion> {
                       .toDouble();
                   final answersWidth =
                       (constraints.maxWidth - 32).clamp(0.0, 448.0);
-                  final answerCellSize =
-                      ((answersWidth - 16) / 2).clamp(72.0, 160.0);
 
                   final card = _buildQuestionCard(cardWidth);
-                  final answers =
-                      _buildAnswerBody(answersWidth, answerCellSize);
+                  final answers = _buildAnswerBody(answersWidth);
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(

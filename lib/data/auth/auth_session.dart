@@ -1,10 +1,12 @@
 import 'dart:convert';
 
-import 'auth_token_storage.dart';
-import 'jwt_utils.dart';
 import '../../core/images/persistent_network_image.dart';
+import '../courses/lesson_page_cache.dart';
 import '../students/student_awards_cache.dart';
 import '../students/student_profile_cache.dart';
+import 'auth_state_notifier.dart';
+import 'auth_token_storage.dart';
+import 'jwt_utils.dart';
 
 class AuthUser {
   const AuthUser({
@@ -13,6 +15,8 @@ class AuthUser {
     required this.token,
     this.email,
     this.role,
+    this.canSwitch = false,
+    this.imageUrl,
   });
 
   final int id;
@@ -20,6 +24,8 @@ class AuthUser {
   final String token;
   final String? email;
   final int? role;
+  final bool canSwitch;
+  final String? imageUrl;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -31,16 +37,25 @@ class AuthUser {
       token: json['token'] as String,
       email: json['email'] as String?,
       role: role is int ? role : int.tryParse(role?.toString() ?? ''),
+      canSwitch: _parseCanSwitch(json['can_switch']),
+      imageUrl: json['image_url'] as String?,
     );
   }
 
-  AuthUser copyWith({String? token}) {
+  AuthUser copyWith({
+    String? token,
+    String? name,
+    bool? canSwitch,
+    String? imageUrl,
+  }) {
     return AuthUser(
       id: id,
-      name: name,
+      name: name ?? this.name,
       token: token ?? this.token,
       email: email,
       role: role,
+      canSwitch: canSwitch ?? this.canSwitch,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 
@@ -50,7 +65,16 @@ class AuthUser {
         'token': token,
         'email': email,
         'role': role,
+        'can_switch': canSwitch,
+        'image_url': imageUrl,
       };
+
+  static bool _parseCanSwitch(dynamic value) {
+    if (value == true || value == 1 || value == '1' || value == 'true') {
+      return true;
+    }
+    return false;
+  }
 }
 
 abstract final class AuthSession {
@@ -62,6 +86,7 @@ abstract final class AuthSession {
     if (refreshToken != null && refreshToken.isNotEmpty) {
       await AuthTokenStorage.writeRefreshToken(refreshToken);
     }
+    AuthStateNotifier.onChanged?.call(user);
   }
 
   static Future<AuthUser?> load() async {
@@ -78,10 +103,24 @@ abstract final class AuthSession {
     return AuthTokenStorage.readRefreshToken();
   }
 
-  static Future<void> clear() {
+  static void clearAccountCaches() {
     StudentProfileCache.clear();
     StudentAwardsCache.clear();
     PersistentNetworkImageCache.clear();
+    LessonPageCache.clear();
+  }
+
+  static Future<void> replaceUser(
+    AuthUser user, {
+    String? refreshToken,
+  }) async {
+    clearAccountCaches();
+    await save(user, refreshToken: refreshToken);
+  }
+
+  static Future<void> clear() {
+    clearAccountCaches();
+    AuthStateNotifier.onChanged?.call(null);
     return AuthTokenStorage.clear();
   }
 

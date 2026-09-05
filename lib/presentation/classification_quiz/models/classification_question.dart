@@ -1,8 +1,15 @@
+import '../../../core/utils/answers_direction.dart';
+
 sealed class ClassificationQuestion {
-  const ClassificationQuestion({required this.id, required this.title});
+  const ClassificationQuestion({
+    required this.id,
+    required this.title,
+    this.answersDirection = AnswersDirection.rtl,
+  });
 
   final String id;
   final String title;
+  final AnswersDirection answersDirection;
 }
 
 class ClassificationAnswer {
@@ -21,6 +28,7 @@ class ClassificationMcqQuestion extends ClassificationQuestion {
   const ClassificationMcqQuestion({
     required super.id,
     required super.title,
+    super.answersDirection,
     required this.answers,
     required this.correctAnswerIds,
   });
@@ -33,6 +41,7 @@ class ClassificationFillBlankQuestion extends ClassificationQuestion {
   const ClassificationFillBlankQuestion({
     required super.id,
     required super.title,
+    super.answersDirection,
     required this.correctAnswer,
   });
 
@@ -71,6 +80,7 @@ class ClassificationMatchingQuestion extends ClassificationQuestion {
   const ClassificationMatchingQuestion({
     required super.id,
     required super.title,
+    super.answersDirection,
     required this.prompts,
   });
 

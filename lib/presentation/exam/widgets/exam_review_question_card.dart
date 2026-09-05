@@ -62,7 +62,7 @@ class ExamReviewQuestionCard extends StatelessWidget {
                   _QuestionHeader(question: q, index: index),
                   if (q.plainTitle.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    _ReviewTitle(text: q.plainTitle),
+                    _ReviewTitle(html: q.title),
                   ],
                   if (q.isPassage && q.childQuestions.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -143,15 +143,16 @@ class _QuestionHeader extends StatelessWidget {
 }
 
 class _ReviewTitle extends StatelessWidget {
-  const _ReviewTitle({required this.text});
+  const _ReviewTitle({required this.html});
 
-  final String text;
+  final String html;
 
   @override
   Widget build(BuildContext context) {
-    return ReviewFlowingText(
-      text: text,
-      style: AppTypography.bodyMd.copyWith(
+    return QuizHtmlText(
+      html: html,
+      textAlign: TextAlign.start,
+      baseStyle: AppTypography.bodyMd.copyWith(
         color: const Color(0xFFE5E7EB),
         fontWeight: AppFonts.medium,
         height: 1.625,

@@ -311,6 +311,14 @@ abstract final class AppGradients {
     colors: [AppColors.loginGradientStart, AppColors.accent],
   );
 
+  /// Web `StudentProfile` switch-account button:
+  /// `from-accent-gradient-from/20 to-accent-gradient-to/10`
+  static const LinearGradient switchAccountButton = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [AppColors.accentBg20, AppColors.blueLightGlow10],
+  );
+
   static const LinearGradient selectItemHover = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
