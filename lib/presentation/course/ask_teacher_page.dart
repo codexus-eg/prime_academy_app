@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import 'widgets/lesson_chat_panel.dart';
 
@@ -29,8 +26,7 @@ class AskTeacherPage extends StatelessWidget {
     required String courseId,
     required String unitId,
     required String lessonId,
-  }) =>
-      '/course/$courseId/units/$unitId/lessons/$lessonId/ask-teacher';
+  }) => '/course/$courseId/units/$unitId/lessons/$lessonId/ask-teacher';
 
   @override
   Widget build(BuildContext context) {

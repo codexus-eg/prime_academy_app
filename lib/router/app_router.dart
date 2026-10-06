@@ -9,8 +9,10 @@ import '../presentation/onboarding/onboarding_page.dart';
 import '../presentation/splash/splash_page.dart';
 import '../presentation/course/course_detail_page.dart';
 import '../presentation/course/ask_teacher_page.dart';
-import '../presentation/course/electronic_handouts_page.dart';
+import '../presentation/course/course_materials_page.dart';
+import '../presentation/course/material_view_page.dart';
 import '../presentation/course/lesson_detail_page.dart';
+import '../data/courses/course_material.dart';
 import '../presentation/course/memory_cards_page.dart';
 import '../presentation/course/models/memory_card.dart';
 import '../presentation/exam/exam_page.dart';
@@ -62,6 +64,36 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const SessionErrorPage(),
     ),
     GoRoute(
+      path: MaterialViewPage.routePath,
+      name: MaterialViewPage.routeName,
+      builder: (context, state) {
+        final courseId = state.pathParameters['courseId']!;
+        final materialId = state.pathParameters['materialId']!;
+        final solved = state.uri.queryParameters['solved'] == 'true';
+        final extra = state.extra;
+        final material = extra is MaterialViewArgs
+            ? extra.material
+            : extra is CourseMaterial
+                ? extra
+                : null;
+        return MaterialViewPage(
+          courseId: courseId,
+          materialId: materialId,
+          solved: solved,
+          initialMaterial: material,
+        );
+      },
+    ),
+    GoRoute(
+      path: CourseMaterialsPage.routePath,
+      name: CourseMaterialsPage.routeName,
+      builder: (context, state) {
+        final courseId = state.pathParameters['courseId']!;
+        final solved = state.uri.queryParameters['solved'] == 'true';
+        return CourseMaterialsPage(courseId: courseId, solved: solved);
+      },
+    ),
+    GoRoute(
       path: CourseDetailPage.routePath,
       name: CourseDetailPage.routeName,
       builder: (context, state) {
@@ -95,18 +127,6 @@ final GoRouter appRouter = GoRouter(
             );
           },
           routes: [
-            GoRoute(
-              path: 'handouts',
-              name: ElectronicHandoutsPage.routeName,
-              pageBuilder: (context, state) => _lessonOverlayPage(
-                ElectronicHandoutsPage(
-                  courseId: state.pathParameters['courseId']!,
-                  unitId: state.pathParameters['unitId']!,
-                  lessonId: state.pathParameters['lessonId']!,
-                  isEnrolled: state.extra is bool ? state.extra as bool : false,
-                ),
-              ),
-            ),
             GoRoute(
               path: 'ask-teacher',
               name: AskTeacherPage.routeName,

@@ -423,6 +423,7 @@ class _PrimaryActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
         child: Ink(
           height: 56, // h-14
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: AppColors.blue, // bg-accent-bg
             borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
@@ -445,18 +446,25 @@ class _PrimaryActionButton extends StatelessWidget {
                   )
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       if (showPlayIcon) ...[
-                        const ExamPlayFillIcon(size: 24),
-                        const SizedBox(width: 8),
+                        const ExamPlayFillIcon(size: 18),
+                        const SizedBox(width: 6),
                       ],
-                      Text(
-                        label,
-                        style: AppTypography.bodyLg.copyWith(
-                          color: AppColors.primary, // text-primary
-                          fontWeight: AppFonts.bold,
-                          fontSize: 18, // text-lg
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: AppTypography.bodyLg.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: AppFonts.bold,
+                              fontSize: 15,
+                              height: 1.1,
+                            ),
+                          ),
                         ),
                       ),
                     ],

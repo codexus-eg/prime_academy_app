@@ -10,13 +10,7 @@ import '../../theme/app_typography.dart';
 import 'button_palette.dart';
 import 'premium_interactive_surface.dart';
 
-enum CustomButtonVariant {
-  primary,
-  secondary,
-  outlined,
-  text,
-  tonal,
-}
+enum CustomButtonVariant { primary, secondary, outlined, text, tonal }
 
 class CustomButton extends StatelessWidget {
   const CustomButton({
@@ -41,9 +35,9 @@ class CustomButton extends StatelessWidget {
     this.expand = false,
     this.customBorder,
   }) : assert(
-          label != null || icon != null,
-          'CustomButton requires a label and/or icon.',
-        );
+         label != null || icon != null,
+         'CustomButton requires a label and/or icon.',
+       );
 
   const CustomButton.primary({
     super.key,
@@ -65,8 +59,8 @@ class CustomButton extends StatelessWidget {
     this.expand = true,
     this.customBorder,
     this.borderColor,
-  })  : variant = CustomButtonVariant.primary,
-        assert(label != null);
+  }) : variant = CustomButtonVariant.primary,
+       assert(label != null);
 
   const CustomButton.secondary({
     super.key,
@@ -88,8 +82,8 @@ class CustomButton extends StatelessWidget {
     this.customBorder,
     this.gradient,
     this.borderColor,
-  })  : variant = CustomButtonVariant.secondary,
-        assert(label != null);
+  }) : variant = CustomButtonVariant.secondary,
+       assert(label != null);
 
   const CustomButton.outlined({
     super.key,
@@ -111,8 +105,8 @@ class CustomButton extends StatelessWidget {
     this.customBorder,
     this.color,
     this.gradient,
-  })  : variant = CustomButtonVariant.outlined,
-        assert(label != null);
+  }) : variant = CustomButtonVariant.outlined,
+       assert(label != null);
 
   const CustomButton.icon({
     super.key,
@@ -164,7 +158,8 @@ class CustomButton extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     final resolvedRadius = borderRadius ?? _defaultRadius(variant);
-    final resolvedBorder = customBorder ??
+    final resolvedBorder =
+        customBorder ??
         (resolvedRadius == BorderRadius.circular(AppRadius.full)
             ? const StadiumBorder()
             : null);
@@ -233,7 +228,8 @@ class CustomButton extends StatelessWidget {
     switch (variant) {
       case CustomButtonVariant.primary:
         return BoxDecoration(
-          gradient: gradient ??
+          gradient:
+              gradient ??
               (color == null
                   ? AppGradients.primaryButton(
                       primary: colorScheme.primary,
@@ -247,8 +243,11 @@ class CustomButton extends StatelessWidget {
         );
       case CustomButtonVariant.secondary:
         return BoxDecoration(
-          color: color ??
-              (isDark ? AppTheme.reportButtonFill : colorScheme.surfaceContainerHigh),
+          color:
+              color ??
+              (isDark
+                  ? AppTheme.reportButtonFill
+                  : colorScheme.surfaceContainerHigh),
           borderRadius: borderRadius ?? _defaultRadius(variant),
         );
       case CustomButtonVariant.tonal:
@@ -294,36 +293,40 @@ class CustomButton extends StatelessWidget {
   static EdgeInsetsGeometry _defaultPadding(CustomButtonVariant variant) {
     return switch (variant) {
       CustomButtonVariant.primary => const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xl,
-          vertical: AppSpacing.md,
-        ),
-      CustomButtonVariant.secondary =>
-        const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      CustomButtonVariant.outlined =>
-        const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.md,
+      ),
+      CustomButtonVariant.secondary => const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+      ),
+      CustomButtonVariant.outlined => const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+      ),
       _ => const EdgeInsets.symmetric(
-          horizontal: AppSpacing.base,
-          vertical: AppSpacing.sm,
-        ),
+        horizontal: AppSpacing.base,
+        vertical: AppSpacing.sm,
+      ),
     };
   }
 
   static TextStyle _defaultTextStyle(CustomButtonVariant variant) {
     return switch (variant) {
-      CustomButtonVariant.primary =>
-        AppTypography.size20.copyWith(fontWeight: AppFonts.bold, height: 1.4),
+      CustomButtonVariant.primary => AppTypography.size20.copyWith(
+        fontWeight: AppFonts.bold,
+        height: 1.4,
+      ),
       CustomButtonVariant.secondary => AppTypography.bodyLg.copyWith(
-          fontWeight: AppFonts.medium,
-          height: 1.5,
-        ),
+        fontWeight: AppFonts.medium,
+        height: 1.5,
+      ),
       CustomButtonVariant.outlined => AppTypography.bodyLg.copyWith(
-          fontWeight: AppFonts.semibold,
-          height: 1.5,
-        ),
+        fontWeight: AppFonts.semibold,
+        height: 1.5,
+      ),
       _ => AppTypography.bodyLg.copyWith(
-          fontWeight: AppFonts.medium,
-          height: 1.5,
-        ),
+        fontWeight: AppFonts.medium,
+        height: 1.5,
+      ),
     };
   }
 }
@@ -369,7 +372,7 @@ class _ButtonContent extends StatelessWidget {
             iconWidget,
             if (labelWidget != null) const SizedBox(width: AppSpacing.sm),
           ],
-          if (labelWidget != null) labelWidget,
+          ?labelWidget,
           if (iconTrailing && iconWidget != null) ...[
             if (labelWidget != null) const SizedBox(width: AppSpacing.sm),
             iconWidget,

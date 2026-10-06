@@ -73,8 +73,8 @@ class _LoginPageState extends State<LoginPage> {
       _phoneError = rawPhone.isEmpty
           ? 'رقم الهاتف مطلوب'
           : normalized == null
-              ? 'يرجى إدخال رقم هاتف صالح'
-              : null;
+          ? 'يرجى إدخال رقم هاتف صالح'
+          : null;
       _apiError = null;
     });
 
@@ -179,9 +179,7 @@ class _LoginPageState extends State<LoginPage> {
               Text(
                 _apiError!,
                 textAlign: TextAlign.center,
-                style: AppTypography.bodySm.copyWith(
-                  color: AppColors.error,
-                ),
+                style: AppTypography.bodySm.copyWith(color: AppColors.error),
               ),
             ],
             const SizedBox(height: AppSpacing.loginButtonTop),
@@ -204,14 +202,13 @@ class _LoginField extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.borderColor,
-    this.hint,
     this.keyboardType,
     this.textInputAction,
     this.errorText,
     this.textDirection,
     this.onSubmitted,
     this.onChanged,
-  });
+  }) : hint = null;
 
   final String label;
   final TextEditingController controller;
@@ -250,8 +247,7 @@ class _LoginField extends StatelessWidget {
             textAlign: TextAlign.right,
             textDirection: textDirection ?? TextDirection.rtl,
             onChanged: onChanged,
-            onSubmitted:
-                onSubmitted != null ? (_) => onSubmitted!() : null,
+            onSubmitted: onSubmitted != null ? (_) => onSubmitted!() : null,
             style: AppTypography.bodyLg.copyWith(color: AppColors.onDark),
             decoration: InputDecoration(
               hintText: hint,
@@ -297,10 +293,7 @@ class _LoginField extends StatelessWidget {
 }
 
 class _LoginSubmitButton extends StatelessWidget {
-  const _LoginSubmitButton({
-    required this.onPressed,
-    this.isLoading = false,
-  });
+  const _LoginSubmitButton({required this.onPressed, this.isLoading = false});
 
   final VoidCallback? onPressed;
   final bool isLoading;

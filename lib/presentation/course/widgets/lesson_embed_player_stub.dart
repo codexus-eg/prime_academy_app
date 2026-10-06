@@ -7,13 +7,11 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/bunny_hls_manifest.dart';
 import '../../../core/utils/lesson_playback_tracker.dart';
 import '../../../core/utils/video_progress.dart';
 import '../../../core/utils/video_source.dart';
 import '../../../core/widgets/lesson_surface_gate.dart';
 import '../../../core/widgets/platform_view_occlusion.dart';
-import 'lesson_bunny_hls_player.dart';
 import 'lesson_embed_commands.dart';
 import 'lesson_embed_support.dart';
 import 'lesson_video_chrome.dart';
@@ -63,9 +61,6 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
   var _lastPositionSeconds = 0;
   var _resumeSeconds = 0;
   String? _missingId;
-  /// When non-null, play via HLS (manifest qualities) instead of the iframe.
-  BunnyHlsResolved? _hls;
-  var _resolvingHls = true;
 
   var _started = false;
   var _playing = false;
@@ -123,26 +118,6 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
   }
 
   Future<void> _bootstrap() async {
-    setState(() {
-      _resolvingHls = true;
-      _isLoading = true;
-      _hasError = false;
-      _hls = null;
-    });
-
-    final resolved = await BunnyHlsManifest.resolve(widget.videoUrl);
-    if (!mounted) return;
-
-    if (resolved != null) {
-      setState(() {
-        _hls = resolved;
-        _resolvingHls = false;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    setState(() => _resolvingHls = false);
     await _createController(widget.videoUrl);
   }
 
@@ -620,35 +595,6 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
             ),
           ),
         ),
-      );
-    }
-
-    if (_resolvingHls) {
-      return const LessonVideoPlayerShell(
-        child: Center(
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: AppColors.blue,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final hls = _hls;
-    if (hls != null) {
-      return LessonBunnyHlsPlayer(
-        key: ValueKey('bunny-hls-${widget.videoUrl}'),
-        resolved: hls,
-        thumbnailUrl: widget.thumbnailUrl,
-        lessonId: widget.lessonId,
-        initialPositionSeconds: widget.initialPositionSeconds,
-        onProgressUpdate: widget.onProgressUpdate,
-        onWatched: widget.onWatched,
-        onPlaybackEnded: widget.onPlaybackEnded,
       );
     }
 

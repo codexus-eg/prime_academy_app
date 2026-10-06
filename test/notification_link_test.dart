@@ -246,6 +246,47 @@ void main() {
       expect(target.isExternal, isTrue);
       expect(target.externalUrl, 'https://example.com/resource');
     });
+
+    test('SESSION_LIVE opens meetingLink externally', () {
+      final target = NotificationLink.resolve(
+        type: NotificationType.sessionLive,
+        data: const NotificationData(
+          title: 'حصة الإنجليزية',
+          link: '',
+          sessionId: 63,
+          meetingLink: 'https://meet.example.com/abc',
+          startTime: '2026-09-15T17:12:00.000Z',
+        ),
+      );
+      expect(target.isExternal, isTrue);
+      expect(target.externalUrl, 'https://meet.example.com/abc');
+    });
+
+    test('SESSION_LIVE without meetingLink stays on home', () {
+      final target = NotificationLink.resolve(
+        type: NotificationType.sessionLive,
+        data: const NotificationData(
+          title: 'حصة',
+          link: '',
+          sessionId: 63,
+        ),
+      );
+      expect(target.isExternal, isFalse);
+      expect(target.location, HomeTab.defaultTab.routePath);
+    });
+
+    test('fromPayload parses SESSION_LIVE meeting fields', () {
+      final target = NotificationLink.fromPayload({
+        'type': 'SESSION_LIVE',
+        'title': 'حصة مباشرة',
+        'sessionId': '63',
+        'meetingLink': 'https://meet.example.com/abc',
+        'startTime': '2026-09-15T17:12:00.000Z',
+        'courseId': '4',
+      });
+      expect(target.isExternal, isTrue);
+      expect(target.externalUrl, 'https://meet.example.com/abc');
+    });
   });
 
   group('NotificationNavigator', () {

@@ -28,10 +28,7 @@ import 'widgets/luck_finished_state.dart';
 import 'widgets/luck_knowledge_lottie_overlay.dart';
 
 class LuckCardsPage extends StatefulWidget {
-  const LuckCardsPage({
-    super.key,
-    required this.quizId,
-  });
+  const LuckCardsPage({super.key, required this.quizId});
 
   final int quizId;
 
@@ -51,10 +48,7 @@ class LuckCardsPage extends StatefulWidget {
 }
 
 class _DeckCard {
-  const _DeckCard({
-    required this.deckIndex,
-    required this.question,
-  });
+  const _DeckCard({required this.deckIndex, required this.question});
 
   final int deckIndex;
   final KnowledgeQuizQuestion question;
@@ -73,7 +67,7 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
   int _totalPicks = 5;
   int _questionsLeft = 5;
 
-  List<LuckCardPickResult> _results = [];
+  final List<LuckCardPickResult> _results = [];
   int? _activeCardIndex;
   int? _selectedAnswer;
   var _answered = false;
@@ -126,13 +120,12 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     final result = List<_DeckCard?>.filled(totalSlots, null);
     final usedSlots = <int>{};
 
-    for (final q in questions.where((q) => q.isAnswered && q.answerIndex != null)) {
+    for (final q in questions.where(
+      (q) => q.isAnswered && q.answerIndex != null,
+    )) {
       final idx = q.answerIndex!;
       if (idx >= 0 && idx < totalSlots) {
-        result[idx] = _DeckCard(
-          deckIndex: idx,
-          question: q,
-        );
+        result[idx] = _DeckCard(deckIndex: idx, question: q);
         usedSlots.add(idx);
       }
     }
@@ -149,10 +142,7 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     for (var i = 0; i < unanswered.length && i < emptySlots.length; i++) {
       final slot = emptySlots[i];
       final q = unanswered[i];
-      result[slot] = _DeckCard(
-        deckIndex: slot,
-        question: q,
-      );
+      result[slot] = _DeckCard(deckIndex: slot, question: q);
     }
 
     return result.whereType<_DeckCard>().toList();
@@ -190,8 +180,9 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
       for (final card in deck) {
         final q = card.question;
         if (q.isAnswered && q.isCorrect != null) {
-          results[card.deckIndex] =
-              q.isCorrect! ? LuckCardPickResult.correct : LuckCardPickResult.wrong;
+          results[card.deckIndex] = q.isCorrect!
+              ? LuckCardPickResult.correct
+              : LuckCardPickResult.wrong;
         }
       }
 
@@ -288,8 +279,7 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     if (card == null || card.question is! KnowledgeMcqQuestion) return;
     final mcq = card.question as KnowledgeMcqQuestion;
     final answerIds = [mcq.answers[optionIndex].id];
-    final correct =
-        KnowledgeAnswerValidation.isCorrect(mcq, answerIds);
+    final correct = KnowledgeAnswerValidation.isCorrect(mcq, answerIds);
     _finalizeAnswer(
       correct: correct,
       selectedIndex: optionIndex,
@@ -308,8 +298,7 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
       return;
     }
 
-    final correct =
-        KnowledgeAnswerValidation.isCorrect(card.question, answers);
+    final correct = KnowledgeAnswerValidation.isCorrect(card.question, answers);
     await _finalizeAnswer(
       correct: correct,
       selectedIndex: null,
@@ -345,9 +334,9 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _answered = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -396,8 +385,9 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
       _selectedAnswer = selectedIndex;
       _answerCorrect = correct;
       if (_activeCardIndex! < _results.length) {
-        _results[_activeCardIndex!] =
-            correct ? LuckCardPickResult.correct : LuckCardPickResult.wrong;
+        _results[_activeCardIndex!] = correct
+            ? LuckCardPickResult.correct
+            : LuckCardPickResult.wrong;
       }
       if (correct && knowledgeApiResult == null) {
         _totalPointsAwarded += card.question.points;
@@ -435,9 +425,9 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
         }
       } on ApiException catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.message)));
         }
       }
     } else {
@@ -476,8 +466,7 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final showGrid =
-        _phase == _LuckPhase.grid || _phase == _LuckPhase.question;
+    final showGrid = _phase == _LuckPhase.grid || _phase == _LuckPhase.question;
 
     return Scaffold(
       backgroundColor: AppColors.mainBg3,
@@ -488,37 +477,43 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
           SafeArea(
             child: switch (_phase) {
               _LuckPhase.loading => const Center(
-                  child: CircularProgressIndicator(color: AppColors.blue),
-                ),
+                child: CircularProgressIndicator(color: AppColors.blue),
+              ),
               _LuckPhase.error => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _errorMessage ?? 'حدث خطأ',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodyLg.copyWith(
-                            color: AppColors.onDark,
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _errorMessage ?? 'حدث خطأ',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyLg.copyWith(
+                          color: AppColors.onDark,
                         ),
-                        const SizedBox(height: AppSpacing.base),
-                        TextButton(onPressed: _load, child: const Text('إعادة المحاولة')),
-                        TextButton(onPressed: () => context.pop(), child: const Text('خروج')),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: AppSpacing.base),
+                      TextButton(
+                        onPressed: _load,
+                        child: const Text('إعادة المحاولة'),
+                      ),
+                      TextButton(
+                        onPressed: () => context.pop(),
+                        child: const Text('خروج'),
+                      ),
+                    ],
                   ),
                 ),
+              ),
               _LuckPhase.empty => LuckEmptyState(onExit: () => context.pop()),
               _LuckPhase.grid || _LuckPhase.question when showGrid => Offstage(
-                  offstage: _phase == _LuckPhase.question,
-                  child: _buildGridPhase(),
-                ),
+                offstage: _phase == _LuckPhase.question,
+                child: _buildGridPhase(),
+              ),
               _LuckPhase.finished => LuckFinishedState(
-                  totalPointsAwarded: _totalPointsAwarded,
-                  onExit: () => context.pop(true),
-                ),
+                totalPointsAwarded: _totalPointsAwarded,
+                onExit: () => context.pop(true),
+              ),
               _ => const SizedBox.shrink(),
             },
           ),
@@ -541,100 +536,102 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Stack(
-      children: [
-        Column(
-          children: [
-            Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                AppSpacing.base,
-                AppSpacing.sm,
-                AppSpacing.base,
-                AppSpacing.sm,
-              ),
-              child: Column(
-                children: [
-                  Center(child: _buildPickHint()),
-                  const SizedBox(height: AppSpacing.md),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final align = constraints.maxWidth >= 1024
-                          ? AlignmentDirectional.centerEnd
-                          : AlignmentDirectional.center;
-                      return Align(
-                        alignment: align,
-                        child: LuckCardsStatsBar(
-                          correctCount: _correctCount,
-                          wrongCount: _wrongCount,
-                          total: _totalPicks,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: LayoutBuilder(
+        children: [
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  AppSpacing.base,
+                  AppSpacing.sm,
+                  AppSpacing.base,
+                  AppSpacing.sm,
+                ),
+                child: Column(
+                  children: [
+                    Center(child: _buildPickHint()),
+                    const SizedBox(height: AppSpacing.md),
+                    LayoutBuilder(
                       builder: (context, constraints) {
-                        const gap = 16.0;
-                        const minTileWidth = 130.0;
-                        final columns = ((constraints.maxWidth + gap) /
-                                (minTileWidth + gap))
-                            .floor()
-                            .clamp(1, 12);
-
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: columns,
-                            mainAxisSpacing: gap,
-                            crossAxisSpacing: gap,
-                            childAspectRatio: 3 / 4,
+                        final align = constraints.maxWidth >= 1024
+                            ? AlignmentDirectional.centerEnd
+                            : AlignmentDirectional.center;
+                        return Align(
+                          alignment: align,
+                          child: LuckCardsStatsBar(
+                            correctCount: _correctCount,
+                            wrongCount: _wrongCount,
+                            total: _totalPicks,
                           ),
-                          itemCount: _deck.length,
-                          itemBuilder: (context, index) {
-                            final card = _deck[index];
-                            final result = card.deckIndex < _results.length
-                                ? _results[card.deckIndex]
-                                : LuckCardPickResult.unopened;
-                            final disabled = (_remaining <= 0 ||
-                                    _questionsLeft <= 0) &&
-                                result == LuckCardPickResult.unopened;
-                            return LuckCardPickTile(
-                              deckIndex: card.deckIndex,
-                              result: result,
-                              disabled: disabled,
-                              heroTag: 'luck-card-${card.deckIndex}',
-                              onTap: result == LuckCardPickResult.unopened &&
-                                      _remaining > 0 &&
-                                      _questionsLeft > 0
-                                  ? () => _openCard(card.deckIndex)
-                                  : null,
-                            );
-                          },
                         );
                       },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          const gap = 16.0;
+                          const minTileWidth = 130.0;
+                          final columns =
+                              ((constraints.maxWidth + gap) /
+                                      (minTileWidth + gap))
+                                  .floor()
+                                  .clamp(1, 12);
+
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: columns,
+                                  mainAxisSpacing: gap,
+                                  crossAxisSpacing: gap,
+                                  childAspectRatio: 3 / 4,
+                                ),
+                            itemCount: _deck.length,
+                            itemBuilder: (context, index) {
+                              final card = _deck[index];
+                              final result = card.deckIndex < _results.length
+                                  ? _results[card.deckIndex]
+                                  : LuckCardPickResult.unopened;
+                              final disabled =
+                                  (_remaining <= 0 || _questionsLeft <= 0) &&
+                                  result == LuckCardPickResult.unopened;
+                              return LuckCardPickTile(
+                                deckIndex: card.deckIndex,
+                                result: result,
+                                disabled: disabled,
+                                heroTag: 'luck-card-${card.deckIndex}',
+                                onTap:
+                                    result == LuckCardPickResult.unopened &&
+                                        _remaining > 0 &&
+                                        _questionsLeft > 0
+                                    ? () => _openCard(card.deckIndex)
+                                    : null,
+                              );
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-        PositionedDirectional(
-          top: AppSpacing.sm,
-          start: AppSpacing.base,
-          child: _buildCloseButton(),
-        ),
-      ],
+            ],
+          ),
+          PositionedDirectional(
+            top: AppSpacing.sm,
+            start: AppSpacing.base,
+            child: _buildCloseButton(),
+          ),
+        ],
       ),
     );
   }
@@ -670,7 +667,6 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
         'اختر $_totalPicks كروت وانت وحظك',
         textAlign: TextAlign.center,
         style: AppTypography.size24.copyWith(
-
           color: AppColors.accentIconMuted400,
           fontWeight: AppFonts.semibold,
           height: 1.2,
@@ -693,7 +689,11 @@ class _LuckCardsPageState extends State<LuckCardsPage> {
             shape: BoxShape.circle,
             border: Border.all(color: const Color(0x33FFFFFF)),
           ),
-          child: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+          child: const Icon(
+            Icons.close_rounded,
+            color: Colors.white70,
+            size: 18,
+          ),
         ),
       ),
     );

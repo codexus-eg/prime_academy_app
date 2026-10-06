@@ -3,17 +3,14 @@ import 'dart:js_interop';
 
 import 'dart:ui_web' as ui_web;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
-import '../../../core/utils/bunny_hls_manifest.dart';
 import '../../../core/utils/lesson_playback_tracker.dart';
 import '../../../core/utils/video_progress.dart';
 import '../../../core/utils/video_source.dart';
-import 'lesson_bunny_hls_player.dart';
 import 'lesson_embed_support.dart';
 import 'lesson_video_chrome.dart';
 import 'lesson_video_fullscreen.dart';
@@ -84,8 +81,6 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
   var _resumeSeconds = 0;
   var _recoveryAttempts = 0;
   var _missingId = false;
-  BunnyHlsResolved? _hls;
-  var _resolvingHls = true;
 
   var _started = false;
   var _playing = false;
@@ -115,30 +110,9 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
     _missingId = VideoSource.extractBunnyVideoId(widget.videoUrl) == null;
     if (_missingId) {
       _isLoading = false;
-      _resolvingHls = false;
       return;
     }
 
-    unawaited(_bootstrap());
-  }
-
-  Future<void> _bootstrap() async {
-    setState(() {
-      _resolvingHls = true;
-      _isLoading = true;
-      _hls = null;
-    });
-    final resolved = await BunnyHlsManifest.resolve(widget.videoUrl);
-    if (!mounted) return;
-    if (resolved != null) {
-      setState(() {
-        _hls = resolved;
-        _resolvingHls = false;
-        _isLoading = false;
-      });
-      return;
-    }
-    setState(() => _resolvingHls = false);
     _registerIframeFactory();
   }
 
@@ -522,8 +496,9 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
     _attachPlayerWhenReady(iframe);
   }
 
-  String? get _errorMessage =>
-      _hasError ? 'تعذّر تشغيل الفيديو. تحقّق من الاتصال أو أعد المحاولة.' : null;
+  String? get _errorMessage => _hasError
+      ? 'تعذّر تشغيل الفيديو. تحقّق من الاتصال أو أعد المحاولة.'
+      : null;
 
   Widget _chrome({required bool isFullscreen}) {
     return LessonVideoChrome(
@@ -590,35 +565,6 @@ class _LessonEmbedPlayerState extends State<LessonEmbedPlayer> {
             ),
           ),
         ),
-      );
-    }
-
-    if (_resolvingHls) {
-      return const LessonVideoPlayerShell(
-        child: Center(
-          child: SizedBox(
-            width: 36,
-            height: 36,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: AppColors.blue,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final hls = _hls;
-    if (hls != null) {
-      return LessonBunnyHlsPlayer(
-        key: ValueKey('bunny-hls-web-${widget.videoUrl}'),
-        resolved: hls,
-        thumbnailUrl: widget.thumbnailUrl,
-        lessonId: widget.lessonId,
-        initialPositionSeconds: widget.initialPositionSeconds,
-        onProgressUpdate: widget.onProgressUpdate,
-        onWatched: widget.onWatched,
-        onPlaybackEnded: widget.onPlaybackEnded,
       );
     }
 

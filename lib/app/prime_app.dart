@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../core/theme/app_theme.dart';
+import '../presentation/home/widgets/live_sessions_dialog.dart';
 import '../router/app_router.dart';
 import 'auth_scope.dart';
 import 'sse_scope.dart';
@@ -30,7 +31,13 @@ class PrimeApp extends StatelessWidget {
           builder: (context, child) {
             return Directionality(
               textDirection: TextDirection.rtl,
-              child: child ?? const SizedBox.shrink(),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  child ?? const SizedBox.shrink(),
+                  const LiveSessionsHost(),
+                ],
+              ),
             );
           },
         ),

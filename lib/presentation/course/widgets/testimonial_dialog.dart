@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/students/testimonials_api.dart';
 
@@ -15,18 +14,13 @@ Future<void> showTestimonialDialog(
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => _TestimonialDialog(
-      courseId: courseId,
-      onSubmitted: onSubmitted,
-    ),
+    builder: (context) =>
+        _TestimonialDialog(courseId: courseId, onSubmitted: onSubmitted),
   );
 }
 
 class _TestimonialDialog extends StatefulWidget {
-  const _TestimonialDialog({
-    required this.courseId,
-    this.onSubmitted,
-  });
+  const _TestimonialDialog({required this.courseId, this.onSubmitted});
 
   final int courseId;
   final VoidCallback? onSubmitted;
@@ -52,21 +46,18 @@ class _TestimonialDialogState extends State<_TestimonialDialog> {
 
     setState(() => _submitting = true);
     try {
-      await TestimonialsApi.submit(
-        courseId: widget.courseId,
-        content: content,
-      );
+      await TestimonialsApi.submit(courseId: widget.courseId, content: content);
       if (!mounted) return;
       widget.onSubmitted?.call();
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إرسال التقييم')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم إرسال التقييم')));
     } on ApiException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

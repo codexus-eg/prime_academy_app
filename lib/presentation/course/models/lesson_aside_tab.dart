@@ -1,7 +1,6 @@
 enum LessonAsideTab {
   videos('videos'),
-  chat('chat'),
-  files('files');
+  chat('chat');
 
   const LessonAsideTab(this.queryValue);
 
@@ -10,8 +9,9 @@ enum LessonAsideTab {
   static LessonAsideTab? fromQuery(String? value) {
     return switch (value) {
       'chat' => LessonAsideTab.chat,
-      'files' => LessonAsideTab.files,
       'videos' => LessonAsideTab.videos,
+      // Legacy deep-link; materials moved to course page.
+      'files' => LessonAsideTab.videos,
       _ => null,
     };
   }

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_shadows.dart';
 import '../../theme/premium_button_animation_theme.dart';
 import 'button_palette.dart';
@@ -55,13 +54,14 @@ class _PremiumButtonMotionWrapperState extends State<PremiumButtonMotionWrapper>
       duration: defaults.pressDuration,
       reverseDuration: defaults.releaseDuration,
     );
-    _scaleAnimation = Tween<double>(begin: 1, end: defaults.pressedScale).animate(
-      CurvedAnimation(
-        parent: _scaleController,
-        curve: defaults.pressCurve,
-        reverseCurve: defaults.releaseCurve,
-      ),
-    );
+    _scaleAnimation = Tween<double>(begin: 1, end: defaults.pressedScale)
+        .animate(
+          CurvedAnimation(
+            parent: _scaleController,
+            curve: defaults.pressCurve,
+            reverseCurve: defaults.releaseCurve,
+          ),
+        );
   }
 
   @override
@@ -99,8 +99,8 @@ class _PremiumButtonMotionWrapperState extends State<PremiumButtonMotionWrapper>
     final glowOpacity = _hovering && widget.showGlow
         ? _anim.hoverGlowOpacity
         : widget.showGlow
-            ? _anim.restGlowOpacity
-            : 0.0;
+        ? _anim.restGlowOpacity
+        : 0.0;
 
     Widget content = AnimatedContainer(
       duration: _anim.containerDuration,
@@ -131,8 +131,12 @@ class _PremiumButtonMotionWrapperState extends State<PremiumButtonMotionWrapper>
 
     if (_supportsHover && _anim.enableHoverEffects) {
       content = MouseRegion(
-        onEnter: widget.enabled ? (_) => setState(() => _hovering = true) : null,
-        onExit: widget.enabled ? (_) => setState(() => _hovering = false) : null,
+        onEnter: widget.enabled
+            ? (_) => setState(() => _hovering = true)
+            : null,
+        onExit: widget.enabled
+            ? (_) => setState(() => _hovering = false)
+            : null,
         cursor: widget.enabled
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,

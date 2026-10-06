@@ -172,7 +172,22 @@ class _ExamPageState extends State<ExamPage> {
     setState(() {
       _phase = _ExamPhase.loading;
       _errorMessage = null;
+      // Match web `handleRetry`: clear previous final results before refetch.
       _answeredQuestions = const [];
+      _correctCount = 0;
+      _sessionAnswered = 0;
+      _finishedCorrect = 0;
+      _finishedIncorrect = 0;
+      _earnedPoints = 0;
+      _totalPoints = 0;
+      _hasLastChance = false;
+      _lastChanceError = null;
+      _index = 0;
+      _passageChildIndex = -1;
+      _selectedMcqId = null;
+      _submitted = false;
+      _lastAnswerCorrect = null;
+      _correctStreak = 0;
     });
 
     if (widget.quizId <= 0) {
@@ -193,6 +208,8 @@ class _ExamPageState extends State<ExamPage> {
         setState(() {
           _phase = _ExamPhase.finished;
           _questionsCount = attempt.questionsCount;
+          _attemptId = attempt.attemptId;
+          _reviewAttemptId = attempt.attemptId;
         });
         return;
       }
@@ -207,9 +224,8 @@ class _ExamPageState extends State<ExamPage> {
 
       setState(() {
         _attemptId = attempt.attemptId;
-        _reviewAttemptId = attempt.firstAttempt
-            ? attempt.attemptId
-            : (_reviewAttemptId.isNotEmpty ? _reviewAttemptId : attempt.attemptId);
+        // Always track the current attempt for results (web uses current response).
+        _reviewAttemptId = attempt.attemptId;
         _isFirstAttempt = attempt.firstAttempt;
         _questions = questions;
         _questionsCount =
@@ -458,8 +474,9 @@ class _ExamPageState extends State<ExamPage> {
       return;
     }
 
-    final reviewAttemptId =
-        _reviewAttemptId.isNotEmpty ? _reviewAttemptId : _attemptId;
+    // Prefer current attempt stats (web `setFinalData(response)`), not a
+    // stale first-attempt review id from a previous run.
+    final reviewAttemptId = _attemptId;
 
     try {
       final review = await UnitQuizApi.getFirstAttemptReview(
@@ -473,26 +490,53 @@ class _ExamPageState extends State<ExamPage> {
           review.answeredQuestions.isNotEmpty;
 
       if (!serverCompleted) {
-        _showCompletionSyncError();
+        // Fall back to this-session counters (matches web local counting).
+        setState(() {
+          _finishedCorrect = _correctCount;
+          _finishedIncorrect =
+              (_questionsCount - _correctCount).clamp(0, _questionsCount);
+          _earnedPoints = _correctCount;
+          _totalPoints = _questionsCount;
+          _phase = _ExamPhase.finished;
+        });
+        await _refreshAfterQuizCompletion();
         return;
       }
 
       setState(() {
         _finishedCorrect = review.correctCount ?? _correctCount;
-        _finishedIncorrect =
-            review.inCorrectCount ?? (_questionsCount - _correctCount);
-        _earnedPoints = review.pointsAwarded ?? 0;
+        _finishedIncorrect = review.inCorrectCount ??
+            (_questionsCount - _correctCount).clamp(0, _questionsCount);
+        _earnedPoints = review.pointsAwarded ?? _finishedCorrect;
         _totalPoints = review.score ?? _questionsCount;
         _answeredQuestions = review.answeredQuestions;
+        _reviewAttemptId = reviewAttemptId;
         _phase = _ExamPhase.finished;
       });
       await _refreshAfterQuizCompletion();
     } on ApiException catch (error) {
       if (!mounted) return;
+      // Still show this-session results so retake never keeps old numbers.
+      setState(() {
+        _finishedCorrect = _correctCount;
+        _finishedIncorrect =
+            (_questionsCount - _correctCount).clamp(0, _questionsCount);
+        _earnedPoints = _correctCount;
+        _totalPoints = _questionsCount;
+        _phase = _ExamPhase.finished;
+      });
       _showCompletionSyncError(message: error.message);
     } catch (error, stackTrace) {
       debugPrint('ExamPage._finalizeFromServer failed: $error\n$stackTrace');
       if (!mounted) return;
+      setState(() {
+        _finishedCorrect = _correctCount;
+        _finishedIncorrect =
+            (_questionsCount - _correctCount).clamp(0, _questionsCount);
+        _earnedPoints = _correctCount;
+        _totalPoints = _questionsCount;
+        _phase = _ExamPhase.finished;
+      });
       _showCompletionSyncError();
     }
   }
@@ -668,6 +712,11 @@ class _ExamPageState extends State<ExamPage> {
         _initialAnswered = attempt.totalAnswered;
         _sessionAnswered = 0;
         _correctCount = 0;
+        _finishedCorrect = 0;
+        _finishedIncorrect = 0;
+        _earnedPoints = 0;
+        _totalPoints = 0;
+        _answeredQuestions = const [];
         _attemptId = attempt.attemptId;
         _reviewAttemptId = attempt.attemptId;
         _isFirstAttempt = attempt.firstAttempt;
@@ -676,6 +725,8 @@ class _ExamPageState extends State<ExamPage> {
         _startDateLabel = null;
         _hasLastChance = false;
         _activatingLastChance = false;
+        _index = 0;
+        _passageChildIndex = -1;
         _phase = _ExamPhase.ready;
       });
     } on ApiException catch (error) {
@@ -808,15 +859,9 @@ class _ExamPageState extends State<ExamPage> {
                   ),
                 _ExamPhase.inProgress => _buildQuizBody(),
                 _ExamPhase.finished => ExamFinishedState(
-                    correctCount: _finishedCorrect > 0
-                        ? _finishedCorrect
-                        : _correctCount,
-                    inCorrectCount: _finishedIncorrect > 0
-                        ? _finishedIncorrect
-                        : (_questionsCount - _correctCount),
-                    earnedPoints: _earnedPoints > 0
-                        ? _earnedPoints
-                        : _correctCount,
+                    correctCount: _finishedCorrect,
+                    inCorrectCount: _finishedIncorrect,
+                    earnedPoints: _earnedPoints,
                     totalPoints:
                         _totalPoints > 0 ? _totalPoints : _questionsCount,
                     hasLastChance: _hasLastChance,

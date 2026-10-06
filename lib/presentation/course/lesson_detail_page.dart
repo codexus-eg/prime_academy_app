@@ -13,7 +13,6 @@ import '../../core/widgets/icons/mystery_card_icon.dart';
 import '../../data/auth/auth_session.dart';
 import '../../data/courses/courses_api.dart';
 import '../../data/courses/lesson_page_cache.dart';
-import '../../data/courses/module_material.dart';
 import '../../data/courses/user_course.dart';
 import '../../data/sse/video_session_guard.dart';
 import '../home/widgets/app_nav_scaffold.dart';
@@ -28,7 +27,6 @@ import 'models/memory_card.dart';
 import 'widgets/lesson_action_button.dart';
 import 'widgets/lesson_action_icons.dart';
 import 'widgets/lesson_chat_panel.dart';
-import 'widgets/lesson_handouts_panel.dart';
 import 'widgets/lesson_video_section.dart';
 import 'widgets/lesson_videos_aside.dart';
 import 'widgets/testimonial_dialog.dart';
@@ -53,8 +51,7 @@ class LessonDetailPage extends StatefulWidget {
     required String courseId,
     required String unitId,
     required String lessonId,
-  }) =>
-      '/course/$courseId/units/$unitId/lessons/$lessonId';
+  }) => '/course/$courseId/units/$unitId/lessons/$lessonId';
 
   @override
   State<LessonDetailPage> createState() => _LessonDetailPageState();
@@ -97,8 +94,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       }
     }
     final realLessonId = activeItem?.lesson?.id;
-    final playback =
-        realLessonId == null ? null : LessonPageCache.lessonOf(realLessonId);
+    final playback = realLessonId == null
+        ? null
+        : LessonPageCache.lessonOf(realLessonId);
 
     final data = _composeScreenData(
       module: module,
@@ -126,10 +124,8 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     final moduleFuture = LessonPageCache.loadModule(
       courseId: courseId,
       moduleId: moduleId,
-      fetch: () => CoursesApi.fetchModuleItems(
-        courseId: courseId,
-        moduleId: moduleId,
-      ),
+      fetch: () =>
+          CoursesApi.fetchModuleItems(courseId: courseId, moduleId: moduleId),
     );
 
     final user = await userFuture;
@@ -145,8 +141,9 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     }
 
     final realLessonId = activeItem?.lesson?.id;
-    final cachedPlayback =
-        realLessonId == null ? null : LessonPageCache.lessonOf(realLessonId);
+    final cachedPlayback = realLessonId == null
+        ? null
+        : LessonPageCache.lessonOf(realLessonId);
 
     // Leave the full-page spinner as soon as the unit is known (web paints
     // module shell while the active lesson query resolves).
@@ -235,10 +232,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       }
       break;
     }
-    LessonPageCache.prefetchLessons(
-      neighborIds,
-      fetch: CoursesApi.fetchLesson,
-    );
+    LessonPageCache.prefetchLessons(neighborIds, fetch: CoursesApi.fetchLesson);
 
     return data;
   }
@@ -251,8 +245,10 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     required bool showStudentProgress,
     required int? userRole,
   }) {
-    final lessons =
-        CourseDetailMapper.lessonsFromItems(module.isEnrolled, module.items);
+    final lessons = CourseDetailMapper.lessonsFromItems(
+      module.isEnrolled,
+      module.items,
+    );
     var title = activeItem?.lesson?.title ?? '';
     if (playback != null && playback.title.isNotEmpty) {
       title = playback.title;
@@ -261,7 +257,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     return _LessonScreenData(
       unitTitle: module.title,
       lessons: lessons,
-      materials: module.materials,
       teacher: module.teacher,
       lessonTitle: title,
       videoUrl: playback?.videoUrl,
@@ -275,15 +270,12 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
       classificationQuizId: playback?.classificationQuizId,
       knowledgeQuizId: playback?.knowledgeQuizId,
       chatId: playback?.chatId,
-      showTeacherChat: userRole != 0 &&
-          module.isEnrolled &&
-          (module.teacher?.id ?? 0) > 0,
+      showTeacherChat:
+          userRole != 0 && module.isEnrolled && (module.teacher?.id ?? 0) > 0,
       classificationQuizCompleted:
           playback?.classificationQuizStatus?.completed ?? false,
-      classificationLevelTitle:
-          playback?.classificationQuizStatus?.levelTitle,
-      knowledgeQuizCompleted:
-          playback?.knowledgeQuizStatus?.completed ?? false,
+      classificationLevelTitle: playback?.classificationQuizStatus?.levelTitle,
+      knowledgeQuizCompleted: playback?.knowledgeQuizStatus?.completed ?? false,
       resumePositionSeconds: VideoProgress.resumePositionSeconds(
         playback?.lastPosition ?? activeItem?.lesson?.lastPosition,
       ),
@@ -361,7 +353,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
     required int realLessonId,
     required String itemId,
   }) async {
-
     await Future<void>.delayed(Duration.zero);
     if (!mounted || widget.lessonId != itemId) return;
     await WidgetsBinding.instance.endOfFrame;
@@ -386,7 +377,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
         _cachedData = _LessonScreenData(
           unitTitle: cached.unitTitle,
           lessons: _sidebarLessons,
-          materials: cached.materials,
           teacher: cached.teacher,
           lessonTitle: cached.lessonTitle,
           videoUrl: cached.videoUrl,
@@ -463,17 +453,14 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           final waiting = snapshot.connectionState == ConnectionState.waiting;
 
           if (data != null) {
-            final videoPending = waiting &&
+            final videoPending =
+                waiting &&
                 (data.videoKind == LessonVideoKind.none ||
                     data.videoUrl == null ||
                     data.videoUrl!.isEmpty);
             return Stack(
               children: [
-                _buildContent(
-                  context,
-                  data,
-                  isLoadingVideo: videoPending,
-                ),
+                _buildContent(context, data, isLoadingVideo: videoPending),
                 if (waiting)
                   const Positioned(
                     top: 12,
@@ -483,9 +470,7 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
                       child: SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
                       ),
                     ),
                   ),
@@ -558,67 +543,55 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
           );
 
           if (isDesktop) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.pageContentHorizontal,
+                AppSpacing.sm,
+                AppSpacing.pageContentHorizontal,
+                AppSpacing.xs,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: SingleChildScrollView(child: mainColumn)),
+                  const SizedBox(width: AppSpacing.lessonPageSectionGap),
+                  SizedBox(
+                    width: AppSpacing.lessonAsideWidth,
+                    height: asideHeight,
+                    child: aside,
+                  ),
+                ],
+              ),
+            );
+          }
 
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.pageContentHorizontal,
-                          AppSpacing.sm,
-                          AppSpacing.pageContentHorizontal,
-                          AppSpacing.xs,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: SingleChildScrollView(
-                                child: mainColumn,
-                              ),
-                            ),
-                            const SizedBox(
-                              width: AppSpacing.lessonPageSectionGap,
-                            ),
-                            SizedBox(
-                              width: AppSpacing.lessonAsideWidth,
-                              height: asideHeight,
-                              child: aside,
-                            ),
-                          ],
-                        ),
-                      );
-                    }
+          if (_asideTab != LessonAsideTab.videos) {
+            return SizedBox(height: asideHeight, child: aside);
+          }
 
-                    if (_asideTab != LessonAsideTab.videos) {
-                      return SizedBox(
-                        height: asideHeight,
-                        child: aside,
-                      );
-                    }
-
-                    return SingleChildScrollView(
-                      controller: _mobileScrollController,
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.pageContentHorizontal,
-                        AppSpacing.sm,
-                        AppSpacing.pageContentHorizontal,
-                        AppSpacing.xs,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          mainColumn,
-                          const SizedBox(
-                            height: AppSpacing.lessonPageSectionGap,
-                          ),
-                          SizedBox(
-                            height: viewportHeight - AppSpacing.lessonNavHeight,
-                            child: aside,
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+          return SingleChildScrollView(
+            controller: _mobileScrollController,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.pageContentHorizontal,
+              AppSpacing.sm,
+              AppSpacing.pageContentHorizontal,
+              AppSpacing.xs,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                mainColumn,
+                const SizedBox(height: AppSpacing.lessonPageSectionGap),
+                SizedBox(
+                  height: viewportHeight - AppSpacing.lessonNavHeight,
+                  child: aside,
                 ),
-              );
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildAside({
@@ -645,15 +618,6 @@ class _LessonDetailPageState extends State<LessonDetailPage> {
             chatId: data.chatId ?? 0,
             courseId: int.parse(courseId),
             teacher: data.teacher,
-            onClose: () => _setAsideTab(LessonAsideTab.videos),
-          ),
-        );
-      case LessonAsideTab.files:
-        return SizedBox(
-          height: asideHeight,
-          child: LessonHandoutsPanel(
-            materials: data.materials,
-            isEnrolled: data.isEnrolled,
             onClose: () => _setAsideTab(LessonAsideTab.videos),
           ),
         );
@@ -696,7 +660,6 @@ class _LessonScreenData {
   const _LessonScreenData({
     required this.unitTitle,
     required this.lessons,
-    required this.materials,
     required this.lessonTitle,
     required this.videoUrl,
     this.videoMimeType,
@@ -721,7 +684,6 @@ class _LessonScreenData {
 
   final String unitTitle;
   final List<CourseLesson> lessons;
-  final List<ModuleMaterial> materials;
   final ModuleTeacher? teacher;
   final String lessonTitle;
   final String? videoUrl;
@@ -765,10 +727,7 @@ class _LessonError extends StatelessWidget {
               style: AppTypography.bodyLg.copyWith(color: AppColors.onDark),
             ),
             const SizedBox(height: AppSpacing.base),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('إعادة المحاولة'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
           ],
         ),
       ),
@@ -786,10 +745,9 @@ class _MainLessonColumn extends StatelessWidget {
     required this.onAsideTabChanged,
     this.isLoadingVideo = false,
     this.onProgressUpdate,
-    this.onWatched,
     this.onPlaybackEnded,
     required this.onOpenQuiz,
-  });
+  }) : onWatched = null;
 
   final _LessonScreenData data;
   final String courseId;
@@ -829,7 +787,6 @@ class _MainLessonColumn extends StatelessWidget {
           courseId: courseId,
           unitId: unitId,
           lessonId: lessonId,
-          asideTab: asideTab,
           onAsideTabChanged: onAsideTabChanged,
           onOpenQuiz: onOpenQuiz,
         ),
@@ -844,7 +801,6 @@ class _ActionGrid extends StatelessWidget {
     required this.courseId,
     required this.unitId,
     required this.lessonId,
-    required this.asideTab,
     required this.onAsideTabChanged,
     required this.onOpenQuiz,
   });
@@ -853,7 +809,6 @@ class _ActionGrid extends StatelessWidget {
   final String courseId;
   final String unitId;
   final String lessonId;
-  final LessonAsideTab asideTab;
   final ValueChanged<LessonAsideTab> onAsideTabChanged;
   final Future<void> Function(String path) onOpenQuiz;
 
@@ -861,17 +816,9 @@ class _ActionGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final buttons = <Widget>[
       LessonActionButton(
-        label: asideTab == LessonAsideTab.files ? 'الفيديوهات' : 'الملازم الالكترونية',
-        leading: LessonActionIcons.svg(
-          asideTab == LessonAsideTab.files
-              ? LessonActionIcons.videos
-              : LessonActionIcons.bookOpen,
-        ),
-        onTap: () => onAsideTabChanged(
-          asideTab == LessonAsideTab.files
-              ? LessonAsideTab.videos
-              : LessonAsideTab.files,
-        ),
+        label: 'الفيديوهات',
+        leading: LessonActionIcons.svg(LessonActionIcons.videos),
+        onTap: () => onAsideTabChanged(LessonAsideTab.videos),
       ),
       if (data.showTeacherChat)
         LessonActionButton(

@@ -75,20 +75,12 @@ abstract final class NotificationNavigator {
   }
 
   static Future<void> openAfterAuth(BuildContext context) async {
-    final pending = NotificationPending.take();
-    if (pending == null || pending.isEmpty) {
+    final target = NotificationPending.takeTarget();
+    if (target == null) {
       context.go(HomeTab.defaultTab.routePath);
       return;
     }
-
-    final router = GoRouter.of(context);
-    final dest = Uri.parse(pending);
-    if (_isRankingPath(dest.path)) {
-      await openRankingTabDirectly(router);
-      return;
-    }
-
-    context.go(pending);
+    await open(context, target);
   }
 
   /// Tear down any lesson video surface, leave the lesson route, then open

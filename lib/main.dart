@@ -5,12 +5,15 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 
 import 'app/app_bootstrap.dart';
 import 'app/prime_app.dart';
+import 'data/push/push_notifications_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Keep the native launch screen until SplashPage paints its first frame.
   AppBootstrap.deferFirstFrameUntilSplashReady();
+
+  await PushNotificationsService.instance.initialize();
 
   _enableAndroidPhotoPicker();
   runApp(const PrimeApp());

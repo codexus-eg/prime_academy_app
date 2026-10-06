@@ -1,7 +1,10 @@
 import '../../presentation/auth/login_page.dart';
 import '../../router/app_router.dart';
+import '../live_sessions/live_sessions_store.dart';
+import '../meeting_schedules/meeting_sessions_sync.dart';
 import '../notifications/notification_store.dart';
 import '../onboarding/onboarding_storage.dart';
+import '../push/push_notifications_service.dart';
 import '../sse/sse_service.dart';
 import 'auth_service.dart';
 
@@ -11,6 +14,9 @@ abstract final class AuthNavigation {
   static Future<void> signOut() async {
     SseService.instance.disconnect();
     NotificationStore.instance.reset();
+    LiveSessionsStore.instance.dismissAll();
+    // unregister() also clears cached meeting schedules + local alarms.
+    await PushNotificationsService.instance.unregister();
 
     await AuthService.logout();
     await OnboardingStorage.markCompleted();
@@ -23,6 +29,9 @@ abstract final class AuthNavigation {
   static Future<void> finishLocalSignOut() async {
     SseService.instance.disconnect();
     NotificationStore.instance.reset();
+    LiveSessionsStore.instance.dismissAll();
+    MeetingSessionsSync.instance.detach();
+    await MeetingSessionsSync.instance.clear();
     await OnboardingStorage.markCompleted();
     _goLogin();
   }

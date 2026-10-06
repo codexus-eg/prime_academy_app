@@ -12,6 +12,7 @@ enum NotificationType {
   newQuizPoints('NEW_QUIZ_POINTS'),
   inactivityReminder('INACTIVITY_REMINDER'),
   incompleteContent('INCOMPLETE_CONTENT'),
+  sessionLive('SESSION_LIVE'),
   unknown('');
 
   const NotificationType(this.apiValue);
@@ -36,6 +37,11 @@ class NotificationData {
     this.courseId,
     this.moduleId,
     this.url,
+    this.sessionId,
+    this.meetingLink,
+    this.startTime,
+    this.courseName,
+    this.groupName,
   });
 
   final String title;
@@ -46,6 +52,11 @@ class NotificationData {
   final int? courseId;
   final int? moduleId;
   final String? url;
+  final int? sessionId;
+  final String? meetingLink;
+  final String? startTime;
+  final String? courseName;
+  final String? groupName;
 
   factory NotificationData.fromJson(Map<String, dynamic> json) {
     final link = json['link'] as String? ?? '';
@@ -61,6 +72,11 @@ class NotificationData {
           courseIdFromLink(link),
       moduleId: _intOrNull(json['moduleId'] ?? json['module_id']),
       url: json['url'] as String?,
+      sessionId: _intOrNull(json['sessionId'] ?? json['session_id']),
+      meetingLink: _stringOrNull(json['meetingLink'] ?? json['meeting_link']),
+      startTime: _stringOrNull(json['startTime'] ?? json['start_time']),
+      courseName: _stringOrNull(json['courseName'] ?? json['course_name']),
+      groupName: _stringOrNull(json['groupName'] ?? json['group_name']),
     );
   }
 
@@ -75,6 +91,7 @@ class AppNotification {
     required this.isRead,
     required this.createdAt,
     required this.updatedAt,
+    this.fromSse = false,
   });
 
   final int id;
@@ -83,6 +100,9 @@ class AppNotification {
   final bool isRead;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// True when this row arrived over the live SSE channel (not a hydrate).
+  final bool fromSse;
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
@@ -99,7 +119,7 @@ class AppNotification {
     );
   }
 
-  AppNotification copyWith({bool? isRead}) {
+  AppNotification copyWith({bool? isRead, bool? fromSse}) {
     return AppNotification(
       id: id,
       type: type,
@@ -107,6 +127,7 @@ class AppNotification {
       isRead: isRead ?? this.isRead,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      fromSse: fromSse ?? this.fromSse,
     );
   }
 }
@@ -164,6 +185,13 @@ int? _intOrNull(Object? value) {
   if (value == null) return null;
   if (value is int) return value;
   return int.tryParse(value.toString());
+}
+
+String? _stringOrNull(Object? value) {
+  if (value == null) return null;
+  final text = value.toString();
+  if (text.isEmpty) return null;
+  return text;
 }
 
 int? _courseIdFromLink(String link) {

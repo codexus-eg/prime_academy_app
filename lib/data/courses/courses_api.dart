@@ -1,11 +1,21 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
+import 'course_material.dart';
 import 'course_rank.dart';
-import 'module_material.dart';
 import 'user_course.dart';
 
 abstract final class CoursesApi {
+
+  static Future<CourseMaterialsResponse> fetchCourseMaterials({
+    required int courseId,
+    required bool solved,
+  }) async {
+    final json = await ApiClient.getJson(
+      '/courses/$courseId/materials/users?solved=$solved',
+    );
+    return CourseMaterialsResponse.fromJson(json);
+  }
 
   static Future<List<CourseRankEntry>> fetchRanksByCourse(int courseId) async {
     if (kDebugMode) {
@@ -42,14 +52,6 @@ abstract final class CoursesApi {
   static Future<LessonPlayback> fetchLesson(int lessonId) async {
     final json = await ApiClient.getJson('/module-items/lesson/$lessonId/user');
     return LessonPlayback.fromJson(json);
-  }
-
-  static Future<List<ModuleMaterial>> fetchModuleMaterials(int moduleId) async {
-    final list = await ApiClient.getJsonList('/course-modules/$moduleId/materials');
-    return list
-        .whereType<Map<String, dynamic>>()
-        .map(ModuleMaterial.fromJson)
-        .toList();
   }
 
   static Future<bool> saveVideoProgress({

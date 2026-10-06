@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/contact_content.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_fonts.dart';
-import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_shadows.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_typography.dart';
 import '../../core/widgets/gradient_border.dart';
 import '../home/widgets/app_nav_scaffold.dart';
 
@@ -26,10 +21,7 @@ class SitePageScaffold extends StatelessWidget {
     return AppNavScaffold(
       backgroundColor: AppTheme.background,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 24,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxContentWidth),

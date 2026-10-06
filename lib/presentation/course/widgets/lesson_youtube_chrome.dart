@@ -9,18 +9,28 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 /// Must keep iframe `allow` permissions (especially `autoplay` + `encrypted-media`)
 /// and a proper `referrerpolicy`; stripping them causes Error 153 / silent
 /// play failures inside Flutter WebViews.
+/// Hides YouTube embed chrome. When [coverWithPoster] is true (pre-start),
+/// a poster covers the iframe while paused. After playback has started, keep
+/// [coverWithPoster] false so the paused frame stays visible.
 Future<void> hideYoutubeEmbedChrome(
   YoutubePlayerController controller, {
   required bool playing,
   required String thumbnailUrl,
+  bool coverWithPoster = true,
 }) async {
   final thumb = jsonEncode(thumbnailUrl);
-  final display = playing ? 'none' : 'block';
+  // Poster only before first play; after start leave the frozen frame visible.
+  final display = (!playing && coverWithPoster) ? 'block' : 'none';
   try {
     await controller.webViewController.runJavaScript('''
 (function () {
   var ALLOW =
     'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen';
+
+  window.__ytHideChromeState = {
+    display: '$display',
+    thumb: $thumb
+  };
 
   function ensureReferrerMeta() {
     if (document.querySelector('meta[name="referrer"]')) return;
@@ -32,6 +42,7 @@ Future<void> hideYoutubeEmbedChrome(
 
   function apply() {
     ensureReferrerMeta();
+    var state = window.__ytHideChromeState || { display: 'none', thumb: '' };
 
     var style = document.getElementById('yt-hide-chrome-style');
     if (!style) {
@@ -94,8 +105,10 @@ Future<void> hideYoutubeEmbedChrome(
         'position:absolute;inset:0;z-index:2147483647;background:#000 center/contain no-repeat;pointer-events:none;';
       box.appendChild(blocker);
     }
-    blocker.style.display = '$display';
-    blocker.style.backgroundImage = 'url(' + $thumb + ')';
+    blocker.style.display = state.display;
+    blocker.style.backgroundImage = state.thumb
+      ? ('url(' + state.thumb + ')')
+      : 'none';
   }
   if (!window.__ytHideChrome) {
     window.__ytHideChrome = true;

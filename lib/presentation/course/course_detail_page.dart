@@ -3,18 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_gradients.dart';
-import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_typography.dart';
 import '../../data/auth/auth_session.dart';
 import '../../data/courses/courses_api.dart';
 import '../../data/courses/lesson_page_cache.dart';
 import '../home/widgets/app_nav_scaffold.dart';
 import 'models/course_detail_mapper.dart';
 import 'models/course_unit.dart';
+import 'widgets/course_memo_buttons.dart';
 import 'widgets/course_unit_tile.dart';
 
 class CourseDetailPage extends StatefulWidget {
@@ -113,7 +109,9 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.courseSectionTop),
+                padding: const EdgeInsets.only(
+                  top: AppSpacing.courseSectionTop,
+                ),
                 child: _CourseTitleBar(title: course.title),
               ),
               const SizedBox(height: AppSpacing.courseTitleModuleGap),
@@ -147,39 +145,40 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
   }
 
   Widget _buildModulesList(CourseDetail course) {
-    if (course.units.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.courseModulesVertical,
-        ),
-        child: Text(
-          'لا يوجد محتوى في هذه الدورة',
-          textAlign: TextAlign.center,
-          style: AppTypography.bodyLg.copyWith(color: AppColors.onDark),
-        ),
-      );
-    }
-
     return Column(
       children: [
-        for (var i = 0; i < course.units.length; i++) ...[
-          if (i > 0) const SizedBox(height: AppSpacing.courseModuleGap),
-          CourseUnitTile(
-            courseId: widget.courseId,
-            unit: course.units[i],
-            isExpanded: _expandedUnitIndex == i,
-            showProgressRing: course.isEnrolled && _showStudentProgress,
-            onLessonClosed: _refreshProgress,
-            onTap: () {
-              final expanding = _expandedUnitIndex != i;
-              setState(() {
-                _expandedUnitIndex = _expandedUnitIndex == i ? null : i;
-              });
-              if (expanding) {
-                _prefetchUnit(course.units[i]);
-              }
-            },
-          ),
+        CourseMemoButtons(courseId: widget.courseId),
+        if (course.units.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.courseModulesVertical,
+            ),
+            child: Text(
+              'لا يوجد محتوى في هذه الدورة',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyLg.copyWith(color: AppColors.onDark),
+            ),
+          )
+        else ...[
+          for (var i = 0; i < course.units.length; i++) ...[
+            const SizedBox(height: AppSpacing.courseModuleGap),
+            CourseUnitTile(
+              courseId: widget.courseId,
+              unit: course.units[i],
+              isExpanded: _expandedUnitIndex == i,
+              showProgressRing: course.isEnrolled && _showStudentProgress,
+              onLessonClosed: _refreshProgress,
+              onTap: () {
+                final expanding = _expandedUnitIndex != i;
+                setState(() {
+                  _expandedUnitIndex = _expandedUnitIndex == i ? null : i;
+                });
+                if (expanding) {
+                  _prefetchUnit(course.units[i]);
+                }
+              },
+            ),
+          ],
         ],
       ],
     );
@@ -205,10 +204,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
             .map((item) => item.lesson?.id)
             .whereType<int>()
             .take(4);
-        LessonPageCache.prefetchLessons(
-          ids,
-          fetch: CoursesApi.fetchLesson,
-        );
+        LessonPageCache.prefetchLessons(ids, fetch: CoursesApi.fetchLesson);
       } catch (_) {}
     }());
   }
@@ -234,10 +230,7 @@ class _CourseError extends StatelessWidget {
               style: AppTypography.bodyLg,
             ),
             const SizedBox(height: AppSpacing.base),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('إعادة المحاولة'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
           ],
         ),
       ),
@@ -255,7 +248,8 @@ class _CourseTitleBar extends StatelessWidget {
     const inset = AppSpacing.courseTitleScreenInset;
 
     return Padding(
-padding: EdgeInsets.symmetric(horizontal: inset),      child: LayoutBuilder(
+      padding: EdgeInsets.symmetric(horizontal: inset),
+      child: LayoutBuilder(
         builder: (context, constraints) {
           final barWidth = constraints.maxWidth;
           final overlayWidth = barWidth * 0.8;

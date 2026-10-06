@@ -3,12 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/painting/css_lesson_action_gradient_painter.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_fonts.dart';
-import '../../../core/theme/app_gradients.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../exam/exam_page.dart';
 import '../lesson_detail_page.dart';
@@ -69,8 +63,7 @@ class _LessonVideosAsideState extends State<LessonVideosAside> {
     return ((trophied / lessonItems.length) * 100).round();
   }
 
-  bool get _showWobblyCircle =>
-      widget.isEnrolled && widget.showStudentProgress;
+  bool get _showWobblyCircle => widget.isEnrolled && widget.showStudentProgress;
 
   @override
   void dispose() {
@@ -89,8 +82,10 @@ class _LessonVideosAsideState extends State<LessonVideosAside> {
         return;
       }
       if (collapsed) {
-        final target = (_scrollController.offset + _headerDiff)
-            .clamp(0.0, _scrollController.position.maxScrollExtent);
+        final target = (_scrollController.offset + _headerDiff).clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
         _scrollController.jumpTo(target);
       } else {
         _scrollController.jumpTo(0);
@@ -144,7 +139,9 @@ class _LessonVideosAsideState extends State<LessonVideosAside> {
             !_scrollController.hasClients || _scrollController.offset <= 0;
         if (deltaY > _scrollCollapseThreshold && atTop && !_isCollapsed) {
           _setCollapsed(true);
-        } else if (deltaY < -_scrollCollapseThreshold && atTop && _isCollapsed) {
+        } else if (deltaY < -_scrollCollapseThreshold &&
+            atTop &&
+            _isCollapsed) {
           _setCollapsed(false);
         }
       },
@@ -199,8 +196,8 @@ class _LessonVideosAsideState extends State<LessonVideosAside> {
                             showProgressRing: widget.showStudentProgress,
                             liveProgressPercent:
                                 lesson.id == widget.currentLessonId
-                                    ? widget.liveProgressPercent
-                                    : null,
+                                ? widget.liveProgressPercent
+                                : null,
                           );
                         },
                       ),
@@ -239,17 +236,15 @@ class _AsideHeader extends StatelessWidget {
     final headerHeight = isCollapsed
         ? AppSpacing.lessonAsideHeaderCollapsed
         : showCircle
-            ? AppSpacing.lessonAsideHeaderExpanded
-            : AppSpacing.lessonAsideHeaderCompact;
+        ? AppSpacing.lessonAsideHeaderExpanded
+        : AppSpacing.lessonAsideHeaderCompact;
 
     return AnimatedContainer(
       duration: _LessonVideosAsideState._headerAnimation,
       curve: Curves.easeInOut,
       height: headerHeight,
       width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: AppGradients.lessonAsideHeader,
-      ),
+      decoration: const BoxDecoration(gradient: AppGradients.lessonAsideHeader),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         child: isCollapsed
@@ -419,77 +414,77 @@ class _LessonAsideItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
       ),
       child: Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
-      child: InkWell(
-        onTap: isActive
-            ? null
-            : () => context.go(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
+        child: InkWell(
+          onTap: isActive
+              ? null
+              : () => context.go(
                   LessonDetailPage.pathFor(
                     courseId: courseId,
                     unitId: unitId,
                     lessonId: lesson.id,
                   ),
                 ),
-        borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
-        hoverColor: AppColors.selectionHover,
-        child: SizedBox(
-          height: AppSpacing.lessonListItemHeight,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              textDirection: TextDirection.rtl,
-              children: [
-                _LessonPlayBadge(
-                  lesson: lesson,
-                  showProgressRing: showProgressRing,
-                  liveProgressPercent: liveProgressPercent,
-                ),
-                const SizedBox(width: AppSpacing.base),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lesson.title,
-                        textDirection: TextDirection.rtl,
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodyMd.copyWith(
-                          fontWeight: AppFonts.semibold,
-                          color: AppColors.onDark,
-                        ),
-                      ),
-                      if (lesson.duration != null) ...[
-                        const SizedBox(height: AppSpacing.sm),
+          borderRadius: BorderRadius.circular(AppRadius.tailwindXl),
+          hoverColor: AppColors.selectionHover,
+          child: SizedBox(
+            height: AppSpacing.lessonListItemHeight,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                textDirection: TextDirection.rtl,
+                children: [
+                  _LessonPlayBadge(
+                    lesson: lesson,
+                    showProgressRing: showProgressRing,
+                    liveProgressPercent: liveProgressPercent,
+                  ),
+                  const SizedBox(width: AppSpacing.base),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          lesson.duration!,
+                          lesson.title,
                           textDirection: TextDirection.rtl,
-                          style: AppTypography.bodySm.copyWith(
-                            color: AppColors.lessonDurationMuted,
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodyMd.copyWith(
+                            fontWeight: AppFonts.semibold,
+                            color: AppColors.onDark,
                           ),
                         ),
+                        if (lesson.duration != null) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            lesson.duration!,
+                            textDirection: TextDirection.rtl,
+                            style: AppTypography.bodySm.copyWith(
+                              color: AppColors.lessonDurationMuted,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                // Keep trophy in-flow so title/duration never paint over it.
-                if (lesson.hasTrophy && showProgressRing) ...[
-                  const SizedBox(width: AppSpacing.sm),
-                  LessonActionIcons.svg(
-                    LessonActionIcons.trophy,
-                    size: 24,
-                    color: AppColors.secondary,
-                  ),
+                  // Keep trophy in-flow so title/duration never paint over it.
+                  if (lesson.hasTrophy && showProgressRing) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    LessonActionIcons.svg(
+                      LessonActionIcons.trophy,
+                      size: 24,
+                      color: AppColors.secondary,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

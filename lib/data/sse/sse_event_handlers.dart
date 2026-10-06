@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../auth/auth_navigation.dart';
 import '../chat/chat_models.dart';
+import '../live_sessions/live_sessions_watcher.dart';
 import '../notifications/notification_models.dart';
 import '../notifications/notification_store.dart';
 import '../notifications/notifications_api.dart';
@@ -58,6 +59,7 @@ abstract final class SseEventHandlers {
               '${inner['updated_at'] ?? root['updated_at'] ?? ''}',
             ) ??
             DateTime.now(),
+        fromSse: true,
       );
 
       if (notification.type == NotificationType.chat) {
@@ -66,6 +68,10 @@ abstract final class SseEventHandlers {
       }
 
       NotificationStore.instance.addIncoming(notification);
+
+      if (notification.type == NotificationType.sessionLive) {
+        LiveSessionsWatcher.surface(notification, playAlarm: true);
+      }
     } catch (_) {}
   }
 

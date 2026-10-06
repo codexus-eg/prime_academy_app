@@ -317,6 +317,8 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
       controller,
       playing: playing,
       thumbnailUrl: _thumbnailUrl,
+      // After first play, leave the paused iframe frame visible.
+      coverWithPoster: !_started,
     );
   }
 
@@ -487,7 +489,7 @@ class _LessonYoutubePlayerState extends State<LessonYoutubePlayer> {
       duration: _duration,
       seeking: _seeking,
       seekValue: _seekValue,
-      thumbnailUrl: _thumbnailUrl,
+      thumbnailUrl: _started ? null : _thumbnailUrl,
       errorMessage: _error,
       onRetry: _reload,
       qualityLabel: _quality,
@@ -720,6 +722,8 @@ class _YoutubeFullscreenBodyState extends State<_YoutubeFullscreenBody> {
         _ctrl,
         playing: playing,
         thumbnailUrl: widget.thumbnailUrl,
+        // Fullscreen opens mid-playback — never cover with poster on pause.
+        coverWithPoster: false,
       ),
     );
     _emit();
@@ -788,7 +792,7 @@ class _YoutubeFullscreenBodyState extends State<_YoutubeFullscreenBody> {
           duration: _duration,
           seeking: _seeking,
           seekValue: _seekValue,
-          thumbnailUrl: widget.thumbnailUrl,
+          thumbnailUrl: null,
           onTogglePlay: _togglePlay,
           onToggleControls: () {
             if (_controlsVisible) {

@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_shadows.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/app_typography.dart';
 
 class LessonVideoSlot extends StatelessWidget {
   const LessonVideoSlot({
@@ -59,10 +54,7 @@ class _PlayPlaceholder extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.overlayWhite10,
-            border: Border.all(
-              color: AppColors.onDarkMuted,
-              width: 2,
-            ),
+            border: Border.all(color: AppColors.onDarkMuted, width: 2),
           ),
           child: const Icon(
             Icons.play_arrow_rounded,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/platform_view_occlusion.dart';
 import '../../../data/auth/auth_controller.dart';
@@ -38,8 +37,7 @@ class _AppNavScaffoldState extends State<AppNavScaffold> {
 
   AuthController get _auth => AuthController.instance;
 
-  bool get _showAuthenticatedNav =>
-      _auth.isResolved && _auth.isAuthenticated;
+  bool get _showAuthenticatedNav => _auth.isResolved && _auth.isAuthenticated;
 
   bool get _showNotifications {
     if (!_showAuthenticatedNav) return false;

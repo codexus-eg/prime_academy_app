@@ -221,12 +221,23 @@ abstract final class ApiClient {
   }
 
   static Future<void> deleteVoid(String path) {
+    return deleteJson(path);
+  }
+
+  static Future<void> deleteJson(
+    String path, [
+    Map<String, dynamic>? body,
+  ]) {
     return _withAuthRefresh(() async {
       final uri = Uri.parse('${ApiConfig.baseUrl}$path');
       late final http.Response response;
 
       try {
-        response = await http.delete(uri, headers: await authHeaders());
+        response = await http.delete(
+          uri,
+          headers: await authHeaders(),
+          body: body == null ? null : jsonEncode(body),
+        );
       } on http.ClientException catch (error) {
         throw ApiException(_networkErrorMessage(error.message));
       }

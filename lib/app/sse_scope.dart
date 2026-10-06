@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/sse/sse_event_handlers.dart';
 import '../../data/sse/sse_service.dart';
+import '../../data/live_sessions/live_sessions_watcher.dart';
 import '../../presentation/auth/login_page.dart';
 import '../../router/app_router.dart';
 
@@ -28,11 +29,13 @@ class _SseScopeState extends State<SseScope> {
     SseEventHandlers.onInvalidToken = () {
       appRouter.go(LoginPage.routePath);
     };
+    LiveSessionsWatcher.attach();
     SseService.instance.connect();
   }
 
   @override
   void dispose() {
+    LiveSessionsWatcher.detach();
     SseEventHandlers.currentUri = null;
     SseEventHandlers.onInvalidToken = null;
     SseService.instance.disconnect();

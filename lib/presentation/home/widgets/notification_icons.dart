@@ -21,6 +21,7 @@ abstract final class NotificationIcons {
     NotificationType.newQuizPoints: 'نتيجة الاختبار',
     NotificationType.inactivityReminder: 'تذكير الدراسة',
     NotificationType.incompleteContent: 'محتوى غير مكتمل',
+    NotificationType.sessionLive: 'حصة مباشرة',
   };
 
   static Widget forItem(
@@ -119,6 +120,12 @@ abstract final class NotificationIcons {
       case NotificationType.inactivityReminder:
         return Icon(
           Icons.schedule_rounded,
+          size: size,
+          color: resolved,
+        );
+      case NotificationType.sessionLive:
+        return Icon(
+          Icons.videocam_rounded,
           size: size,
           color: resolved,
         );

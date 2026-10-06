@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../push/push_notifications_service.dart';
 import 'auth_service.dart';
 import 'auth_session.dart';
 import 'auth_state_notifier.dart';
@@ -33,12 +36,16 @@ class AuthController extends ChangeNotifier {
     _user = restored ? await AuthSession.load() : null;
     _resolved = true;
     notifyListeners();
+    if (_user != null) {
+      unawaited(PushNotificationsService.instance.registerIfNeeded());
+    }
   }
 
   void adopt(AuthUser user) {
     _user = user;
     _resolved = true;
     notifyListeners();
+    unawaited(PushNotificationsService.instance.registerIfNeeded());
   }
 
   void release() {

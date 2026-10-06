@@ -117,8 +117,9 @@ class _LessonVideoChromeState extends State<LessonVideoChrome> {
     }
 
     final totalSeconds = widget.duration.inMilliseconds / 1000;
-    final currentSeconds =
-        widget.seeking ? widget.seekValue : widget.position.inMilliseconds / 1000;
+    final currentSeconds = widget.seeking
+        ? widget.seekValue
+        : widget.position.inMilliseconds / 1000;
     final maxSeconds = totalSeconds <= 0 ? 1.0 : totalSeconds;
 
     return Directionality(
@@ -126,21 +127,15 @@ class _LessonVideoChromeState extends State<LessonVideoChrome> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (!widget.playing && widget.thumbnailUrl != null)
-            _Poster(
-              thumbnailUrl: widget.thumbnailUrl,
-              onPlay: widget.onTogglePlay,
-              dim: true,
-            )
-          else
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _closeMenu();
-                widget.onToggleControls();
-              },
-              child: const ColoredBox(color: Colors.transparent),
-            ),
+          // After start, keep the paused frame visible — never cover with poster.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              _closeMenu();
+              widget.onToggleControls();
+            },
+            child: const ColoredBox(color: Colors.transparent),
+          ),
           if (widget.buffering) const _LoadingOverlay(),
           AnimatedOpacity(
             opacity: widget.controlsVisible ? 1 : 0,
@@ -236,11 +231,7 @@ class _ControlsLayer extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0x66000000),
-            Color(0x00000000),
-            Color(0xE6000000),
-          ],
+          colors: [Color(0x66000000), Color(0x00000000), Color(0xE6000000)],
           stops: [0, 0.45, 1],
         ),
       ),
@@ -396,11 +387,7 @@ class _ControlsLayer extends StatelessWidget {
 }
 
 class _MenuCard extends StatelessWidget {
-  const _MenuCard({
-    required this.title,
-    required this.children,
-    this.onBack,
-  });
+  const _MenuCard({required this.title, required this.children, this.onBack});
 
   final String title;
   final List<Widget> children;
@@ -552,11 +539,8 @@ class _ChromeIconButton extends StatelessWidget {
 }
 
 class _Poster extends StatelessWidget {
-  const _Poster({
-    required this.thumbnailUrl,
-    required this.onPlay,
-    this.dim = false,
-  });
+  const _Poster({required this.thumbnailUrl, required this.onPlay})
+    : dim = false;
 
   final String? thumbnailUrl;
   final VoidCallback onPlay;
@@ -580,7 +564,9 @@ class _Poster extends StatelessWidget {
                         const ColoredBox(color: Colors.black),
                   ),
           ),
-          ColoredBox(color: dim ? const Color(0x66000000) : const Color(0x40000000)),
+          ColoredBox(
+            color: dim ? const Color(0x66000000) : const Color(0x40000000),
+          ),
           Center(
             child: _ChromeIconButton(
               icon: Icons.play_arrow_rounded,

@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 Future<void> enterBrowserFullscreen() async {}
 
 Future<void> exitBrowserFullscreen() async {}

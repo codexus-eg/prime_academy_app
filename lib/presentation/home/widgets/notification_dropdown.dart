@@ -8,9 +8,11 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/notification_styles.dart';
 import '../../../core/widgets/buttons/notification_bell_button.dart';
 import '../../../data/auth/auth_session.dart';
+import '../../../data/live_sessions/live_sessions_watcher.dart';
 import '../../../data/notifications/notification_models.dart';
 import '../../../data/notifications/notification_store.dart';
 import '../../../data/notifications/notifications_api.dart';
+import '../home_tab.dart';
 import 'notification_icons.dart';
 import 'notification_link.dart';
 import 'notification_navigator.dart';
@@ -85,6 +87,7 @@ class _NotificationDropdownState extends State<NotificationDropdown>
         _loading = false;
       });
       _overlayEntry?.markNeedsBuild();
+      LiveSessionsWatcher.checkMissed();
     } on ApiException {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -181,8 +184,20 @@ class _NotificationDropdownState extends State<NotificationDropdown>
   }
 
   Future<void> _openItem(NotificationListItem item) async {
-    final target = NotificationLink.forItem(item);
     final showFade = _itemWasUnread(item);
+
+    if (item is IndividualNotificationItem &&
+        item.notification.type == NotificationType.sessionLive) {
+      await _openLiveSession(item.notification);
+      if (showFade) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      }
+      if (!mounted) return;
+      _close();
+      return;
+    }
+
+    final target = NotificationLink.forItem(item);
     switch (item) {
       case GroupNotificationItem(:final group):
         await _handleGroupTap(group.groupType, group.groupId);
@@ -197,6 +212,32 @@ class _NotificationDropdownState extends State<NotificationDropdown>
     }
     _close();
     await NotificationNavigator.open(context, target);
+  }
+
+  Future<void> _openLiveSession(AppNotification notification) async {
+    if (!notification.isRead) {
+      await _markAsRead([notification.id]);
+    }
+
+    final meetingLink = notification.data.meetingLink?.trim();
+    if (meetingLink == null || meetingLink.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('لا يوجد رابط متاح لهذه الحصة بعد'),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    await NotificationNavigator.open(
+      context,
+      NotificationNavigationTarget(
+        location: HomeTab.defaultTab.routePath,
+        externalUrl: meetingLink,
+      ),
+    );
   }
 
   @override
@@ -439,11 +480,24 @@ class _NotificationTile extends StatelessWidget {
           isGroup: false,
           title: NotificationIcons.titles[notification.type] ??
               notification.data.title,
-          subtitle: notification.data.title,
-          subtitleIsAccent: false,
+          subtitle: notification.type == NotificationType.sessionLive
+              ? _liveSessionSubtitle(notification)
+              : notification.data.title,
+          subtitleIsAccent:
+              notification.type == NotificationType.sessionLive &&
+                  (notification.data.meetingLink?.isNotEmpty ?? false),
           onTap: () => onOpen(item),
         ),
     };
+  }
+
+  String _liveSessionSubtitle(AppNotification notification) {
+    final title = notification.data.title.trim();
+    if (notification.data.meetingLink?.isNotEmpty ?? false) {
+      return title.isEmpty ? 'انضم الآن للحصة المباشرة' : title;
+    }
+    if (title.isNotEmpty) return title;
+    return 'تواصل مع معلمك للحصول على الرابط';
   }
 
   Widget _buildTile({

@@ -118,6 +118,17 @@ abstract final class NotificationLink {
           location: '/home/ranking',
           opensRanking: true,
         );
+      case NotificationType.sessionLive:
+        final meetingLink = data.meetingLink?.trim();
+        if (meetingLink != null && meetingLink.isNotEmpty) {
+          return NotificationNavigationTarget(
+            location: HomeTab.defaultTab.routePath,
+            externalUrl: meetingLink,
+          );
+        }
+        return NotificationNavigationTarget(
+          location: HomeTab.defaultTab.routePath,
+        );
       case NotificationType.unknown:
         break;
     }
@@ -155,8 +166,18 @@ abstract final class NotificationLink {
         courseId: _parseId(data['courseId'] ?? data['course_id']),
         moduleId: _parseId(data['moduleId'] ?? data['module_id']),
         url: data['url'],
+        sessionId: _parseId(data['sessionId'] ?? data['session_id']),
+        meetingLink: _nullable(data['meetingLink'] ?? data['meeting_link']),
+        startTime: _nullable(data['startTime'] ?? data['start_time']),
+        courseName: _nullable(data['courseName'] ?? data['course_name']),
+        groupName: _nullable(data['groupName'] ?? data['group_name']),
       ),
     );
+  }
+
+  static String? _nullable(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return value;
   }
 
   static int? _parseId(String? value) {

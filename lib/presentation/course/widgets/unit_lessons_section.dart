@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_gradients.dart';
-import '../../../core/theme/app_shadows.dart';
-import '../../../core/theme/app_fonts.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/buttons/premium_interactive_surface.dart';
 import '../../exam/exam_page.dart';
@@ -188,72 +181,78 @@ class _LessonListTile extends StatelessWidget {
     return PremiumInteractiveSurface(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.md),
-      accentColor: isCurrent ? AppTheme.homeTabBarFill : AppTheme.lessonActionDark,
+      accentColor: isCurrent
+          ? AppTheme.homeTabBarFill
+          : AppTheme.lessonActionDark,
       showGlow: false,
       child: Ink(
         height: 60,
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: AppSpacing.md),
-          decoration: BoxDecoration(
-            color: isCurrent
-                ? AppTheme.homeTabBarFill
-                : AppTheme.lessonActionDark,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: isCurrent
-                ? Border.all(color: AppTheme.lessonTimelineLine.withValues(alpha: 0.5))
-                : null,
-          ),
-          child: Row(
-            children: [
-              if (isCompleted)
-                LessonStatusIcon(
-                  progressPercent: lesson.progressPercent,
-                  hasTrophy: lesson.hasTrophy,
-                  showProgressRing: true,
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: AppSpacing.md,
+        ),
+        decoration: BoxDecoration(
+          color: isCurrent
+              ? AppTheme.homeTabBarFill
+              : AppTheme.lessonActionDark,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: isCurrent
+              ? Border.all(
+                  color: AppTheme.lessonTimelineLine.withValues(alpha: 0.5),
                 )
-              else
-                _PlayCircle(),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              : null,
+        ),
+        child: Row(
+          children: [
+            if (isCompleted)
+              LessonStatusIcon(
+                progressPercent: lesson.progressPercent,
+                hasTrophy: lesson.hasTrophy,
+                showProgressRing: true,
+              )
+            else
+              _PlayCircle(),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lesson.title,
+                    textAlign: TextAlign.start,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodyLg.copyWith(
+                      color: AppColors.onDark,
+                      fontWeight: AppFonts.semibold,
+                    ),
+                  ),
+                  if (lesson.duration != null) ...[
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
-                      lesson.title,
+                      lesson.duration!,
                       textAlign: TextAlign.start,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodyLg.copyWith(
-                        color: AppColors.onDark,
-                        fontWeight: AppFonts.semibold,
+                      style: AppTypography.size11.copyWith(
+                        color: AppColors.onDark.withValues(alpha: 0.85),
+                        fontWeight: AppFonts.regular,
+                        height: 1.82,
                       ),
                     ),
-                    if (lesson.duration != null) ...[
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        lesson.duration!,
-                        textAlign: TextAlign.start,
-                        style: AppTypography.size11.copyWith(
-                          color: AppColors.onDark.withValues(alpha: 0.85),
-                          fontWeight: AppFonts.regular,
-                          height: 1.82,
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
-              if (isCompleted) ...[
-                const SizedBox(width: AppSpacing.sm),
-                Icon(
-                  Icons.emoji_events_outlined,
-                  color: AppColors.amberAccent,
-                  size: 28,
-                ),
-              ],
+            ),
+            if (isCompleted) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Icon(
+                Icons.emoji_events_outlined,
+                color: AppColors.amberAccent,
+                size: 28,
+              ),
             ],
-          ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -293,61 +292,61 @@ class _ChallengeBanner extends StatelessWidget {
       showGlow: true,
       child: Ink(
         height: 72,
-          padding: const EdgeInsetsDirectional.fromSTEB(
-            AppSpacing.md,
-            AppSpacing.smPlus,
-            AppSpacing.base,
-            AppSpacing.smPlus,
-          ),
-          decoration: BoxDecoration(
-            gradient: AppGradients.challengeBanner,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 59,
-                height: 59,
-                decoration: BoxDecoration(
-                  color: AppColors.onDark.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.borderCard,
-                ),
-                child: Icon(
-                  Icons.fitness_center_rounded,
-                  color: AppColors.onDark.withValues(alpha: 0.9),
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'مستعد للاختبار؟',
-                      textAlign: TextAlign.start,
-                      style: AppTypography.headingDialog.copyWith(
-                        color: AppColors.onDark,
-                        fontWeight: AppFonts.bold,
-                        height: 1.56,
-                      ),
-                    ),
-                    Text(
-                      'كمل التحدي عشان ترفع مستواك',
-                      textAlign: TextAlign.start,
-                      style: AppTypography.size10.copyWith(
-                        color: AppColors.lessonMutedLabel,
-                        fontWeight: AppFonts.regular,
-                        height: 2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          AppSpacing.md,
+          AppSpacing.smPlus,
+          AppSpacing.base,
+          AppSpacing.smPlus,
         ),
+        decoration: BoxDecoration(
+          gradient: AppGradients.challengeBanner,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 59,
+              height: 59,
+              decoration: BoxDecoration(
+                color: AppColors.onDark.withValues(alpha: 0.1),
+                borderRadius: AppRadius.borderCard,
+              ),
+              child: Icon(
+                Icons.fitness_center_rounded,
+                color: AppColors.onDark.withValues(alpha: 0.9),
+                size: 32,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'مستعد للاختبار؟',
+                    textAlign: TextAlign.start,
+                    style: AppTypography.headingDialog.copyWith(
+                      color: AppColors.onDark,
+                      fontWeight: AppFonts.bold,
+                      height: 1.56,
+                    ),
+                  ),
+                  Text(
+                    'كمل التحدي عشان ترفع مستواك',
+                    textAlign: TextAlign.start,
+                    style: AppTypography.size10.copyWith(
+                      color: AppColors.lessonMutedLabel,
+                      fontWeight: AppFonts.regular,
+                      height: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

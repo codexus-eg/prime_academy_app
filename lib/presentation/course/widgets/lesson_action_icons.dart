@@ -11,6 +11,14 @@ abstract final class LessonActionIcons {
   static const checkmark = 'assets/icons/lesson/checkmark.svg';
   static const trophy = 'assets/icons/lesson/trophy.svg';
   static const dumbbell = 'assets/icons/lesson/dumbbell.svg';
+  /// Web `/assets/icons/file.svg` used on course memo buttons.
+  static const file = 'assets/icons/lesson/file.svg';
+  /// Web `FaRegFileAlt` (Font Awesome regular file-alt / file-lines).
+  static const fileAlt = 'assets/icons/lesson/file_alt.svg';
+  /// Web `FiFileText` (Feather).
+  static const fileText = 'assets/icons/lesson/file_text.svg';
+  /// Web `FiDownload` (Feather).
+  static const download = 'assets/icons/lesson/download.svg';
 
   static Widget svg(
     String asset, {

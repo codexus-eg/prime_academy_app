@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "929957752544",
+    "project_id": "prime-academy-1ffb0",
+    "storage_bucket": "prime-academy-1ffb0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:929957752544:android:b84e092bdee92b53db6a85",
+        "android_client_info": {
+          "package_name": "com.primeacademy.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6hzxEYy2-AyTJtHHkf4w0yPBIjC7az7g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

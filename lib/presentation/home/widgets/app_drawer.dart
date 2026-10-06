@@ -9,7 +9,12 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/auth/auth_navigation.dart';
 import '../../../data/auth/auth_service.dart';
 import '../../../data/auth/auth_session.dart';
+import '../../../data/meeting_schedules/meeting_schedule_notify_prefs.dart';
+import '../../../data/meeting_schedules/meeting_sessions_sync.dart';
+import '../../../data/push/push_notifications_service.dart';
 import '../../auth/login_page.dart';
+import 'local_sessions_debug_panel.dart';
+import 'meeting_notify_scope_dialog.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key, required this.user});
@@ -23,6 +28,14 @@ class AppDrawer extends StatefulWidget {
 class _AppDrawerState extends State<AppDrawer> {
   bool _isLoggingOut = false;
   bool _isDeletingAccount = false;
+  bool _isTestingNotification = false;
+  bool _isUpdatingNotifyScope = false;
+
+  /// TEMP: hide session-notify scope entry; keep dialog/prefs/files in place.
+  static const bool _showMeetingNotifyScope = false;
+
+  /// TEMP debug tools — set to true to show notification/session test entries.
+  static const bool _showNotificationDebugTools = false;
 
   static const double _widthMobile = 300;
   static const double _widthWide = 350;
@@ -31,6 +44,9 @@ class _AppDrawerState extends State<AppDrawer> {
   bool get _isAuthenticated => widget.user != null;
 
   bool get _isStudent => widget.user?.role == 1;
+
+  bool get _canUseFamilyNotify =>
+      _isStudent && (widget.user?.canSwitch ?? false);
 
   String get _profileRedirect => '/home';
 
@@ -97,9 +113,9 @@ class _AppDrawerState extends State<AppDrawer> {
       await AuthNavigation.finishLocalSignOut();
     } on AuthException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) setState(() => _isDeletingAccount = false);
     }
@@ -117,10 +133,79 @@ class _AppDrawerState extends State<AppDrawer> {
     }
   }
 
+  Future<void> _handleNotificationTest() async {
+    if (_isTestingNotification) return;
+    setState(() => _isTestingNotification = true);
+    try {
+      final result = await PushNotificationsService.instance.sendDeliveryTest();
+      if (!mounted) return;
+      _closeDrawer();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('فشل اختبار الإشعار: $error')));
+    } finally {
+      if (mounted) setState(() => _isTestingNotification = false);
+    }
+  }
+
+  Future<void> _handleLocalSessionsDebug() async {
+    _closeDrawer();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    await showLocalSessionsDebugPanel(context);
+  }
+
+  Future<void> _handleNotifyScopeTap() async {
+    if (_isUpdatingNotifyScope || !_canUseFamilyNotify) return;
+
+    final current = await MeetingScheduleNotifyPrefs.load(canUseFamily: true);
+    if (!mounted) return;
+
+    // Show dialog first (do not pop the drawer beforehand — that can dismiss
+    // the dialog route and drop the user's choice).
+    final selected = await showMeetingNotifyScopeDialog(
+      context,
+      current: current,
+    );
+    if (!mounted || selected == null) return;
+
+    _closeDrawer();
+
+    if (selected == current) return;
+
+    setState(() => _isUpdatingNotifyScope = true);
+    try {
+      await MeetingSessionsSync.instance.applyNotifyScope(selected);
+      if (!mounted) return;
+      final label = selected == MeetingScheduleNotifyScope.family
+          ? 'جميع المشتركين'
+          : 'أنا فقط';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('تم ضبط إشعارات الحصص: $label')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذّر تحديث إعداد الإشعارات: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingNotifyScope = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final width =
-        MediaQuery.sizeOf(context).width >= _smBreakpoint ? _widthWide : _widthMobile;
+    final width = MediaQuery.sizeOf(context).width >= _smBreakpoint
+        ? _widthWide
+        : _widthMobile;
 
     return Drawer(
       width: width,
@@ -191,6 +276,34 @@ class _AppDrawerState extends State<AppDrawer> {
                                   color: AppColors.overlayWhite4,
                                 ),
                               ),
+                              if (_canUseFamilyNotify &&
+                                  _showMeetingNotifyScope) ...[
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: _NotifyScopeButton(
+                                    isLoading: _isUpdatingNotifyScope,
+                                    onTap: _handleNotifyScopeTap,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                              if (_showNotificationDebugTools) ...[
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: _NotificationTestButton(
+                                    isLoading: _isTestingNotification,
+                                    onTap: _handleNotificationTest,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: _LocalSessionsDebugButton(
+                                    onTap: _handleLocalSessionsDebug,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
                               SizedBox(
                                 width: double.infinity,
                                 child: _LogoutButton(
@@ -252,7 +365,6 @@ class _DrawerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         border: Border(
@@ -267,7 +379,6 @@ class _DrawerHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-
                   Container(
                     width: 40,
                     height: 40,
@@ -377,7 +488,6 @@ class _ProfileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: AppColors.transparent,
@@ -394,12 +504,11 @@ class _ProfileButton extends StatelessWidget {
               border: Border.all(color: AppColors.rankBlueBorder30),
             ),
             child: const Padding(
-
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Text(
+                  Text(
                     'حسابي',
                     textAlign: TextAlign.right,
                     style: TextStyle(
@@ -409,8 +518,8 @@ class _ProfileButton extends StatelessWidget {
                       color: AppColors.onDark,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.person, color: AppColors.blueLight, size: 18),
+                  SizedBox(width: 12),
+                  Icon(Icons.person, color: AppColors.blueLight, size: 18),
                 ],
               ),
             ),
@@ -489,7 +598,6 @@ class _NavLinkRow extends StatelessWidget {
         borderRadius: AppRadius.borderTailwindXl,
         hoverColor: AppColors.overlayWhite4,
         child: Padding(
-
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -511,6 +619,166 @@ class _NavLinkRow extends StatelessWidget {
                 size: 18,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotifyScopeButton extends StatelessWidget {
+  const _NotifyScopeButton({required this.isLoading, required this.onTap});
+
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.transparent,
+      borderRadius: AppRadius.borderTailwindXl,
+      child: InkWell(
+        onTap: isLoading ? null : onTap,
+        borderRadius: AppRadius.borderTailwindXl,
+        hoverColor: AppColors.overlayWhite4,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.overlayWhite4,
+            borderRadius: AppRadius.borderTailwindXl,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Text(
+                    'إشعارات الحصص',
+                    style: TextStyle(
+                      fontFamily: AppFonts.bahij,
+                      fontSize: 16,
+                      fontWeight: AppFonts.medium,
+                      color: AppColors.onDark.withValues(alpha: 0.9),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.notifications_active_outlined,
+                  color: AppColors.onDark.withValues(alpha: 0.7),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationTestButton extends StatelessWidget {
+  const _NotificationTestButton({required this.isLoading, required this.onTap});
+
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.transparent,
+      borderRadius: AppRadius.borderTailwindXl,
+      child: InkWell(
+        onTap: isLoading ? null : onTap,
+        borderRadius: AppRadius.borderTailwindXl,
+        hoverColor: AppColors.overlayWhite4,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.overlayWhite4,
+            borderRadius: AppRadius.borderTailwindXl,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Text(
+                    'اختبار الإشعار',
+                    style: TextStyle(
+                      fontFamily: AppFonts.bahij,
+                      fontSize: 16,
+                      fontWeight: AppFonts.medium,
+                      color: AppColors.onDark.withValues(alpha: 0.9),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.notifications_active_outlined,
+                  color: AppColors.onDark.withValues(alpha: 0.7),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalSessionsDebugButton extends StatelessWidget {
+  const _LocalSessionsDebugButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.transparent,
+      borderRadius: AppRadius.borderTailwindXl,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.borderTailwindXl,
+        hoverColor: AppColors.overlayWhite4,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.overlayWhite4,
+            borderRadius: AppRadius.borderTailwindXl,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'حصص مجدولة (تجربة)',
+                  style: TextStyle(
+                    fontFamily: AppFonts.bahij,
+                    fontSize: 16,
+                    fontWeight: AppFonts.medium,
+                    color: AppColors.onDark.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.event_available_outlined,
+                  color: AppColors.onDark.withValues(alpha: 0.7),
+                  size: 18,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -540,7 +808,6 @@ class _LogoutButton extends StatelessWidget {
             border: Border.all(color: AppColors.errorGlow20),
           ),
           child: Padding(
-
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,

@@ -7,6 +7,7 @@ import '../../core/config/api_config.dart';
 import '../../core/network/api_client.dart';
 import '../../core/platform/device_type.dart';
 import '../../core/utils/json_bool.dart';
+import '../push/push_notifications_service.dart';
 import 'auth_cookie_client.dart';
 import 'auth_cookie_parser.dart';
 import 'auth_models.dart';
@@ -352,6 +353,8 @@ abstract final class AuthService {
     if (user?.token == null) {
       throw AuthException('يجب تسجيل الدخول أولاً');
     }
+
+    await PushNotificationsService.instance.unregister();
 
     late final http.Response response;
     try {
