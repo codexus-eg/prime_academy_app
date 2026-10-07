@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_gradients.dart';
-import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_typography.dart';
 import '../../core/utils/phone_formatter.dart';
 import '../../core/widgets/legal_policy_links.dart';
 import '../../data/auth/auth_controller.dart';

@@ -21,10 +21,7 @@ import '../widgets/report_filter_dropdown.dart';
 import '../../common/anchored_select_menu.dart';
 
 class HomeRankingTab extends StatefulWidget {
-  const HomeRankingTab({
-    super.key,
-    this.routeCourseId,
-  });
+  const HomeRankingTab({super.key, this.routeCourseId});
 
   /// `course_id` query param — set only when the user picks a course in the
   /// dropdown (same as web RankTable writing course_id after selection).
@@ -89,10 +86,11 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
     var list = _searchQuery.isEmpty
         ? _allStudents
         : _allStudents
-            .where((s) => s.name.toLowerCase().contains(_searchQuery))
-            .toList();
+              .where((s) => s.name.toLowerCase().contains(_searchQuery))
+              .toList();
 
-    list = [...list]..sort((a, b) {
+    list = [...list]
+      ..sort((a, b) {
         var cmp = 0;
         if (_sortField == 'rank') {
           cmp = a.rank.compareTo(b.rank);
@@ -217,14 +215,13 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
       debugPrint('[Ranking] Courses loaded ($coursesKey)');
     }
 
-    final shouldForce = _rankings.isEmpty &&
+    final shouldForce =
+        _rankings.isEmpty &&
         (!_hasAttemptedInitialLoad || _awaitingProfileForCourse);
     _scheduleSync(force: shouldForce || profileBecameAvailable);
   }
 
-  void _syncCourseFromRouteOrProfile({
-    bool force = false,
-  }) {
+  void _syncCourseFromRouteOrProfile({bool force = false}) {
     final routeCourseId = _courseIdFromRoute;
     final courses = StudentProfileScope.maybeOf(context)?.profile?.courses;
     final enrolledCourseIds = courses?.map((course) => course.id).toList();
@@ -362,6 +359,7 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
           _pendingScrollToCurrent = true;
           return;
         }
+        if (!target.mounted) return; // سطر الحماية الجديد
         Scrollable.ensureVisible(
           target,
           duration: const Duration(milliseconds: 350),
@@ -503,10 +501,7 @@ class _HomeRankingTabState extends State<HomeRankingTab> {
   }
 
   Widget _buildRankingTable(Widget child) {
-    return Padding(
-      padding: _tableEdgePadding,
-      child: child,
-    );
+    return Padding(padding: _tableEdgePadding, child: child);
   }
 
   Widget _buildBody(BuildContext context) {

@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
-import '../../theme/app_fonts.dart';
-import '../../theme/app_gradients.dart';
-import '../../theme/app_radius.dart';
-import '../../theme/app_spacing.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/app_typography.dart';
 import 'button_palette.dart';
 import 'premium_interactive_surface.dart';
 

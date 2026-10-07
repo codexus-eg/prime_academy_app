@@ -42,8 +42,7 @@ class MaterialViewPage extends StatefulWidget {
     required String courseId,
     required String materialId,
     required bool solved,
-  }) =>
-      '/course-materials/$courseId/$materialId?solved=$solved';
+  }) => '/course-materials/$courseId/$materialId?solved=$solved';
 
   @override
   State<MaterialViewPage> createState() => _MaterialViewPageState();
@@ -174,10 +173,7 @@ class _MaterialViewPageState extends State<MaterialViewPage> {
     if (url == null || url.isEmpty || _downloading) return;
     setState(() => _downloading = true);
     try {
-      final result = await downloadMaterialFile(
-        url: url,
-        fileName: _filename,
-      );
+      final result = await downloadMaterialFile(url: url, fileName: _filename);
       if (!mounted) return;
       showMaterialDownloadSuccessSnackBar(context, result);
     } catch (e) {
@@ -185,9 +181,9 @@ class _MaterialViewPageState extends State<MaterialViewPage> {
       final message = e is MaterialDownloadException
           ? e.message
           : 'تعذّر تحميل الملف';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
@@ -287,49 +283,47 @@ class _MaterialViewPageState extends State<MaterialViewPage> {
                             controller: _controller,
                             params: PdfViewerParams(
                               backgroundColor: Colors.transparent,
-                              minScale: _minScale,
-                              maxScale: _maxScale,
-                              calculateInitialZoom: (
-                                document,
-                                controller,
-                                fitZoom,
-                                coverZoom,
-                              ) {
-                                return _initialScale.clamp(
-                                  _minScale,
-                                  _maxScale,
-                                );
-                              },
-                              errorBannerBuilder: (
-                                context,
-                                error,
-                                documentRef,
-                                controller,
-                              ) {
-                                return Center(
-                                  child: Text(
-                                    'تعذر تحميل الملف',
-                                    style: AppTypography.bodySm.copyWith(
-                                      color: AppColors.error,
-                                    ),
+                              sizeDelegateProvider:
+                                  PdfViewerSizeDelegateProviderLegacy(
+                                    minScale: _minScale,
+                                    maxScale: _maxScale,
+                                    calculateInitialZoom:
+                                        (
+                                          document,
+                                          controller,
+                                          fitZoom,
+                                          coverZoom,
+                                        ) {
+                                          return _initialScale.clamp(
+                                            _minScale,
+                                            _maxScale,
+                                          );
+                                        },
                                   ),
-                                );
-                              },
-                              loadingBannerBuilder: (
-                                context,
-                                bytesDownloaded,
-                                totalBytes,
-                              ) {
-                                return Center(
-                                  child: Text(
-                                    'جاري تحميل الملف...',
-                                    style: AppTypography.bodySm.copyWith(
-                                      color: AppColors.onDark
-                                          .withValues(alpha: 0.6),
-                                    ),
-                                  ),
-                                );
-                              },
+                              errorBannerBuilder:
+                                  (context, error, documentRef, controller) {
+                                    return Center(
+                                      child: Text(
+                                        'تعذر تحميل الملف',
+                                        style: AppTypography.bodySm.copyWith(
+                                          color: AppColors.error,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                              loadingBannerBuilder:
+                                  (context, bytesDownloaded, totalBytes) {
+                                    return Center(
+                                      child: Text(
+                                        'جاري تحميل الملف...',
+                                        style: AppTypography.bodySm.copyWith(
+                                          color: AppColors.onDark.withValues(
+                                            alpha: 0.6,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                             ),
                           ),
                         ),
@@ -421,8 +415,9 @@ class _ControlsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pageLabel =
-        pageCount > 0 ? '$pageNumber / $pageCount' : '$pageNumber / …';
+    final pageLabel = pageCount > 0
+        ? '$pageNumber / $pageCount'
+        : '$pageNumber / …';
     final zoomLabel = '${(scale * 100).round()}%';
 
     // Match web under RTL: download group on the LEFT, page nav on the RIGHT.
@@ -453,8 +448,9 @@ class _ControlsBar extends StatelessWidget {
               ),
               _ControlIconButton(
                 icon: Icons.chevron_left_rounded,
-                onPressed:
-                    pageCount > 0 && pageNumber >= pageCount ? null : onNext,
+                onPressed: pageCount > 0 && pageNumber >= pageCount
+                    ? null
+                    : onNext,
               ),
             ],
           ),
@@ -496,10 +492,7 @@ class _ControlsBar extends StatelessWidget {
                   ),
                 ),
               ),
-              _ControlIconButton(
-                icon: Icons.add_rounded,
-                onPressed: onZoomIn,
-              ),
+              _ControlIconButton(icon: Icons.add_rounded, onPressed: onZoomIn),
             ],
           ),
         ),
@@ -539,12 +532,7 @@ class _ControlIconButton extends StatelessWidget {
             width: 32,
             height: 32,
             child: Center(
-              child: child ??
-                  Icon(
-                    icon,
-                    size: 16,
-                    color: AppColors.onDark,
-                  ),
+              child: child ?? Icon(icon, size: 16, color: AppColors.onDark),
             ),
           ),
         ),

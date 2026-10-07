@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/app_typography.dart';
 import '../../core/utils/video_progress.dart';
 import '../../core/widgets/icons/mystery_card_icon.dart';
 import '../../data/auth/auth_session.dart';
